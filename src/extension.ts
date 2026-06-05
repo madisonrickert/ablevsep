@@ -37,6 +37,6 @@ export function activate(activation: ActivationContext) {
     })();
   });
 
-  void context.ui.registerContextMenuAction("AudioClip", "MVSEP Stems", "mvsep.separate.clip");
-  void context.ui.registerContextMenuAction("ClipSlot", "MVSEP Stems", "mvsep.separate.slot");
+  void context.ui.registerContextMenuAction("AudioClip", "Separate Stems with MVSEP", "mvsep.separate.clip");
+  void context.ui.registerContextMenuAction("ClipSlot", "Separate Stems with MVSEP", "mvsep.separate.slot");
 }
