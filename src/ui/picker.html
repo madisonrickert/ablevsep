@@ -13,12 +13,14 @@
       .row small { color: #999; display: block; }
       .field { margin: 6px 0; }
       label { display: block; margin-bottom: 2px; color: #aaa; }
+      .tokenrow { display: flex; gap: 8px; align-items: center; }
+      .tokenrow #token-mask { flex: 1; font-family: ui-monospace, monospace; color: #bbb; overflow: hidden; white-space: nowrap; }
       .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
       button { padding: 6px 14px; border-radius: 4px; border: 1px solid #555; background: #333; color: #eee; cursor: pointer; }
       button.primary { background: #0a64a4; border-color: #0a64a4; }
       button:disabled { opacity: 0.5; cursor: default; }
       a { color: #4ea1e0; }
-      .hint { color: #888; font-size: 11px; }
+      .hint { color: #888; font-size: 11px; margin-top: 3px; }
     </style>
   </head>
   <body>
@@ -39,10 +41,14 @@
     </div>
     <div class="field">
       <label>mvsep API token <span class="hint">(<a href="https://mvsep.com/full_api" target="_blank">get one</a>)</span></label>
-      <input id="token" type="password" placeholder="paste token" autocomplete="off" />
-    </div>
-    <div class="field">
-      <label><input type="checkbox" id="remember" /> Remember model, format &amp; token as default</label>
+      <div id="token-locked" style="display:none">
+        <div class="tokenrow">
+          <span id="token-mask"></span>
+          <button id="replace" type="button">Replace</button>
+        </div>
+      </div>
+      <input id="token" type="password" placeholder="paste token" autocomplete="off" style="display:none" />
+      <div id="token-status" class="hint"></div>
     </div>
     <div class="actions">
       <button id="cancel">Cancel</button>
@@ -53,17 +59,23 @@
       const DATA = /*__PICKER_DATA__*/null;
       const algos = (DATA && DATA.algorithms) || [];
       const cfg = (DATA && DATA.config) || { outputFormat: 1 };
+      const tokenStatus = (DATA && DATA.tokenStatus) || null;
 
       let selected = null;
       const listEl = document.getElementById("list");
       const optionsEl = document.getElementById("options");
       const searchEl = document.getElementById("search");
       const tokenEl = document.getElementById("token");
+      const lockedEl = document.getElementById("token-locked");
+      const maskEl = document.getElementById("token-mask");
+      const statusEl = document.getElementById("token-status");
+      const replaceBtn = document.getElementById("replace");
       const formatEl = document.getElementById("format");
-      const rememberEl = document.getElementById("remember");
       const separateEl = document.getElementById("separate");
 
-      tokenEl.value = cfg.apiToken || "";
+      const savedToken = cfg.apiToken || "";
+      let replacing = !savedToken; // no saved token → start in entry mode
+
       formatEl.value = String(cfg.outputFormat != null ? cfg.outputFormat : 1);
 
       function post(payload) {
@@ -73,6 +85,30 @@
         } else if (window.chrome && window.chrome.webview) {
           window.chrome.webview.postMessage(msg);
         }
+      }
+
+      function maskToken(t) { return t.length <= 4 ? "••••" : "••••••••" + t.slice(-4); }
+      function effectiveToken() { return savedToken && !replacing ? savedToken : tokenEl.value.trim(); }
+
+      function renderTokenUI() {
+        const locked = savedToken && !replacing;
+        lockedEl.style.display = locked ? "" : "none";
+        tokenEl.style.display = locked ? "none" : "";
+        if (locked) maskEl.textContent = maskToken(savedToken);
+        if (locked && tokenStatus) {
+          if (tokenStatus.valid) {
+            statusEl.style.color = "#7bc47b";
+            statusEl.textContent =
+              "✓ token valid" + (tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " premium min" : "");
+          } else {
+            statusEl.style.color = "#e88";
+            statusEl.textContent =
+              "✗ saved token invalid" + (tokenStatus.message ? " (" + tokenStatus.message + ")" : "") + " — Replace it";
+          }
+        } else {
+          statusEl.textContent = "";
+        }
+        updateEnabled();
       }
 
       function renderOptions() {
@@ -119,9 +155,7 @@
 
       function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-      function updateEnabled() {
-        separateEl.disabled = !(selected && tokenEl.value.trim());
-      }
+      function updateEnabled() { separateEl.disabled = !(selected && effectiveToken()); }
 
       function collectOptions() {
         const out = {};
@@ -131,14 +165,14 @@
 
       searchEl.oninput = () => renderList(searchEl.value);
       tokenEl.oninput = updateEnabled;
+      replaceBtn.onclick = () => { replacing = true; tokenEl.value = ""; renderTokenUI(); tokenEl.focus(); };
       document.getElementById("cancel").onclick = () => post({ cancelled: true });
       separateEl.onclick = () =>
         post({
           renderId: selected.renderId,
           options: collectOptions(),
           outputFormat: Number(formatEl.value),
-          apiToken: tokenEl.value.trim(),
-          remember: rememberEl.checked,
+          apiToken: effectiveToken(),
         });
 
       // Preselect last-used model if present.
@@ -148,7 +182,7 @@
       }
       renderList("");
       renderOptions();
-      updateEnabled();
+      renderTokenUI();
     </script>
   </body>
 </html>

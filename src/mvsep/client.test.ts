@@ -1,17 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
-import { createSeparation, getStatus, downloadFile, MvsepError } from "./client";
+import { createSeparation, getStatus, downloadFile, checkToken, MvsepError } from "./client";
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   return { ok, status, json: async () => body, arrayBuffer: async () => new ArrayBuffer(0) } as unknown as Response;
 }
 
 describe("createSeparation", () => {
-  it("posts multipart fields and returns the hash", async () => {
+  it("posts a hand-built multipart body (no FormData/Blob) and returns the hash", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ success: true, data: { hash: "abc123" } }));
     const hash = await createSeparation(
       {
         apiToken: "TOK",
-        file: new Blob([new Uint8Array([1, 2, 3])]),
+        fileData: new Uint8Array([1, 2, 3]),
         fileName: "audio.wav",
         sepType: 40,
         outputFormat: 1,
@@ -20,25 +20,56 @@ describe("createSeparation", () => {
       fetchImpl as unknown as typeof fetch,
     );
     expect(hash).toBe("abc123");
-    const [url, init] = fetchImpl.mock.calls[0];
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://mvsep.com/api/separation/create");
-    expect((init as RequestInit).method).toBe("POST");
-    const fd = (init as RequestInit).body as FormData;
-    expect(fd.get("api_token")).toBe("TOK");
-    expect(fd.get("sep_type")).toBe("40");
-    expect(fd.get("output_format")).toBe("1");
-    expect(fd.get("add_opt1")).toBe("2");
-    expect(fd.get("audiofile")).toBeInstanceOf(Blob);
+    expect(init.method).toBe("POST");
+    const contentType = (init.headers as Record<string, string>)["content-type"];
+    expect(contentType).toMatch(/^multipart\/form-data; boundary=----mvsep/);
+    const body = Buffer.from(init.body as Uint8Array).toString("utf8");
+    expect(body).toContain('name="api_token"');
+    expect(body).toContain("TOK");
+    expect(body).toContain('name="sep_type"');
+    expect(body).toContain("40");
+    expect(body).toContain('name="output_format"');
+    expect(body).toContain('name="add_opt1"');
+    expect(body).toContain('name="audiofile"; filename="audio.wav"');
   });
 
   it("throws MvsepError with server message on success:false", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ success: false, data: { message: "bad token" } }, false, 401));
     await expect(
       createSeparation(
-        { apiToken: "x", file: new Blob([]), fileName: "a.wav", sepType: 1, outputFormat: 1, options: {} },
+        { apiToken: "x", fileData: new Uint8Array(), fileName: "a.wav", sepType: 1, outputFormat: 1, options: {} },
         fetchImpl as unknown as typeof fetch,
       ),
     ).rejects.toMatchObject({ message: "bad token", code: 401 });
+  });
+});
+
+describe("checkToken", () => {
+  it("returns valid + premiumMinutes for a good token", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ success: true, data: { premium_minutes: 42, premium_enabled: 1 } }));
+    const status = await checkToken("TOK", fetchImpl as unknown as typeof fetch);
+    expect(status).toMatchObject({ valid: true, premiumMinutes: 42, premiumEnabled: true });
+    expect(fetchImpl.mock.calls[0][0]).toBe("https://mvsep.com/api/app/user?api_token=TOK");
+  });
+
+  it("returns invalid (non-throwing) on success:false", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ success: false, data: { message: "Invalid API key" } }, false, 400));
+    await expect(checkToken("bad", fetchImpl as unknown as typeof fetch)).resolves.toMatchObject({
+      valid: false,
+      message: "Invalid API key",
+    });
+  });
+
+  it("returns invalid (non-throwing) on network error", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("net down");
+    });
+    await expect(checkToken("x", fetchImpl as unknown as typeof fetch)).resolves.toMatchObject({
+      valid: false,
+      message: "net down",
+    });
   });
 });
 

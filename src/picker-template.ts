@@ -10,6 +10,8 @@ export interface PickerData {
     lastModel?: { renderId: number; options: Record<string, string> };
     outputFormat: number;
   };
+  /** Result of the launch-time token health check, if a token was saved. */
+  tokenStatus?: { valid: boolean; premiumMinutes?: number; message?: string };
 }
 
 export interface PickerResult {

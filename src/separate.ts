@@ -6,9 +6,9 @@ import {
   ClipSlot,
   type ExtensionContext,
 } from "@ableton-extensions/sdk";
-import { createSeparation, downloadFile, getStatus, MvsepError, type StatusFile } from "./mvsep/client";
+import { checkToken, createSeparation, downloadFile, getStatus, MvsepError, type StatusFile } from "./mvsep/client";
 import { loadCatalog, type CatalogCache } from "./mvsep/catalog";
-import { readConfig, writeConfig, type Config } from "./config";
+import { readConfig, writeConfig } from "./config";
 import { pollUntilDone, AbortError } from "./separate-core";
 import { openPicker } from "./picker";
 import { type PickerResult } from "./picker-template";
@@ -68,20 +68,25 @@ export async function runSeparation(
     now: () => Date.now(),
   });
 
+  // Launch health check: validate any saved token so the picker can show its status.
+  const tokenStatus = config.apiToken ? await checkToken(config.apiToken) : undefined;
+  console.info(
+    `[mvsep] launch: saved token ${config.apiToken ? "present" : "none"}; status ${JSON.stringify(tokenStatus ?? null)}`,
+  );
+
   const choice: PickerResult | null = await openPicker(ctx, {
     algorithms,
     config: { apiToken: config.apiToken, lastModel: config.lastModel, outputFormat: config.outputFormat },
+    tokenStatus,
   });
   if (!choice) return; // cancelled
 
-  if (choice.remember) {
-    const next: Config = {
-      apiToken: choice.apiToken,
-      lastModel: { renderId: choice.renderId, options: choice.options as Record<string, string> },
-      outputFormat: choice.outputFormat,
-    };
-    await writeConfig(writeFileUtf8, configPath, next);
-  }
+  // The token (and last-used model/format) is auto-saved on every run, regardless.
+  await writeConfig(writeFileUtf8, configPath, {
+    apiToken: choice.apiToken,
+    lastModel: { renderId: choice.renderId, options: choice.options as Record<string, string> },
+    outputFormat: choice.outputFormat,
+  });
 
   const orig = clipInfo(target.clip);
 
@@ -110,7 +115,7 @@ export async function runSeparation(
       const fileBuf = await fsp.readFile(sourcePath);
       const hash = await createSeparation({
         apiToken: choice.apiToken,
-        file: new Blob([fileBuf]),
+        fileData: fileBuf,
         fileName: sourceName,
         sepType: choice.renderId,
         outputFormat: choice.outputFormat,
@@ -159,6 +164,7 @@ export async function runSeparation(
   });
   } catch (e) {
     if (e instanceof AbortError) return;
+    console.error("[mvsep] separation failed:", e instanceof Error ? (e.stack ?? e.message) : e);
     const msg = e instanceof MvsepError && e.code === 401
       ? "Invalid mvsep API token. Check your token and run Separate with MVSEP again."
       : (e instanceof Error ? e.message : "Separation failed.");
