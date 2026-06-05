@@ -57,7 +57,8 @@ export async function showError(ctx: ExtensionContext<"1.0.0">, message: string)
   const url = "data:text/html," + encodeURIComponent(errorDialogHtml(message));
   try {
     await ctx.ui.showModalDialog(url, 440, 300);
-  } catch {
-    // ignore
+  } catch (e) {
+    // The dialog must never throw, but don't lose the original error: log both.
+    console.error("[mvsep] could not show error dialog. Original error:", message, "| dialog error:", e instanceof Error ? e.message : e);
   }
 }

@@ -72,6 +72,26 @@ describe("pollUntilDone", () => {
     expect(files).toEqual([{ filename: "v.wav", downloadUrl: "u" }]);
   });
 
+  it("sets the up-to-5-minutes expectation once finalize exceeds ~10s", async () => {
+    // done-empty for several polls (POLL_MS=2500: poll #5 crosses 10s), then files appear.
+    let i = 0;
+    const texts: string[] = [];
+    const seq: StatusResult[] = [
+      ...Array.from({ length: 6 }, () => ({ status: "done", files: [] }) as StatusResult),
+      { status: "done", files: [{ filename: "v.wav", downloadUrl: "u" }] },
+    ];
+    await pollUntilDone("h", {
+      getStatus: async () => seq[Math.min(i++, seq.length - 1)],
+      sleep: async () => {},
+      signal: { aborted: false } as AbortSignal,
+      onProgress: (p) => texts.push(p.text),
+    });
+    // First finalize tick (<=10s) uses the short "exporting" message...
+    expect(texts[0]).toMatch(/exporting stems/i);
+    // ...and a later tick (>10s) sets the up-to-5-min expectation.
+    expect(texts.some((t) => /up to 5 min/i.test(t))).toBe(true);
+  });
+
   it("gives up if done-but-empty never resolves", async () => {
     await expect(
       pollUntilDone("h", {

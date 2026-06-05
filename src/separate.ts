@@ -144,7 +144,7 @@ export async function runSeparation(
       const localStems: { name: string; importedPath: string }[] = [];
       for (let i = 0; i < files.length; i++) {
         if (signal.aborted) return;
-        await report(`Downloading stems… (${i + 1}/${files.length})`, 82 + Math.round((10 * i) / Math.max(files.length, 1)));
+        await report(`Downloading stems… (${i + 1}/${files.length})`, 85 + Math.round((7 * i) / Math.max(files.length, 1)));
         console.info(`[mvsep] download ${i + 1}/${files.length}: ${files[i].filename}`);
         const buf = await downloadFile(files[i].downloadUrl);
         const dest = await writeBuffer(tempDir, `${Date.now()}-${i}-${files[i].filename}`, buf);

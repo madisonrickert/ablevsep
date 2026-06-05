@@ -52,10 +52,12 @@ export function progressFor(s: StatusResult, processingTick = 0): Progress {
   }
 }
 
-/** Max consecutive "done but no files yet" polls before giving up (~1 min at POLL_MS).
- * mvsep reports "done" before it finishes exporting/publishing the stem files; for
- * many-stem models on a free account this can exceed the budget and time out. */
-export const DONE_EMPTY_MAX = 24;
+/** Max consecutive "done but no files yet" polls before giving up (~5 min at POLL_MS).
+ * mvsep reports "done" before the stem files finish exporting; under free-tier load this
+ * can take minutes (confirmed: such jobs do finish, just slowly). The progress dialog's
+ * Cancel stays responsive throughout, so a long cap never traps the user, but a job that
+ * is about to finish is not killed prematurely. */
+export const DONE_EMPTY_MAX = 120;
 
 export async function pollUntilDone(
   hash: string,
@@ -73,18 +75,27 @@ export async function pollUntilDone(
     if (deps.signal.aborted) throw new AbortError();
     const s = await deps.getStatus(hash);
     if (s.status === "done" && s.files.length === 0) {
-      // mvsep flips to "done" before the file list is written; show "Finalizing"
-      // (not "Done", which is misleading) with elapsed time, and keep polling.
+      // mvsep flips to "done" before the stem files finish exporting; the file records
+      // appear with empty urls until each is uploaded to storage. This export step is
+      // usually instant but can run for minutes under free-tier load, so we keep polling
+      // and set an honest expectation rather than showing a misleading "Done".
       doneEmpty += 1;
       if (doneEmpty > DONE_EMPTY_MAX) {
         throw new MvsepError(
-          "mvsep finished the separation but did not publish the stem files within ~1 minute. " +
-            "Big multi-stem models can be slow to export on a free account; please try again, " +
-            "or use a model with fewer stems.",
+          "mvsep finished separating but has not made the stem files available within 5 minutes. " +
+            "On the free tier this export step can run long under load. The job is often still " +
+            "finishing on mvsep's side, so trying again in a few minutes usually works.",
         );
       }
       const secs = Math.round((doneEmpty * POLL_MS) / 1000);
-      deps.onProgress({ text: `mvsep is exporting stems… (${secs}s)`, percent: Math.min(81, 79 + Math.floor(doneEmpty / 10)) });
+      // After ~10s, set the up-to-5-minutes expectation so a long export does not read as a freeze.
+      const text =
+        doneEmpty * POLL_MS > 10_000
+          ? `mvsep is exporting stems, up to 5 min (${secs}s)`
+          : `mvsep is exporting stems… (${secs}s)`;
+      // Gentle asymptotic creep 80 -> 84 so the bar stays visibly alive without overstating progress.
+      const percent = Math.min(84, 80 + Math.round(8 * (1 - Math.exp(-doneEmpty / 20))));
+      deps.onProgress({ text, percent });
     } else {
       const tick = s.status === "processing" ? ++processingTick : 0;
       deps.onProgress(progressFor(s, tick));

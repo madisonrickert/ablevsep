@@ -15,7 +15,13 @@ export async function readConfig(
   try {
     const parsed = JSON.parse(await readFile(path));
     return { ...DEFAULT_CONFIG, ...parsed };
-  } catch {
+  } catch (e) {
+    // A missing file on first run is expected; a parse error means a corrupt config
+    // (which would silently drop the saved token), so surface that case.
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/ENOENT|no such file/i.test(msg)) {
+      console.warn("[mvsep] config: could not read/parse config, using defaults:", msg);
+    }
     return { ...DEFAULT_CONFIG };
   }
 }

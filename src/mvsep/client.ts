@@ -132,21 +132,25 @@ export async function checkToken(apiToken: string, fetchImpl: typeof fetch = fet
   }
 }
 
-/** Resolves a possibly-relative URL against BASE using the built-in URL parser. */
+/** Resolves a possibly-relative URL against BASE. Does NOT use `new URL()`: in Live's
+ * Extension Host runtime the WHATWG URL parser throws (or is absent), which silently
+ * swallowed every absolute stem url and made jobs look like "done with no files". mvsep
+ * always returns absolute https urls, so return those as-is and join relatives by hand. */
 function resolveUrl(s: string): string {
-  try {
-    return new URL(s, BASE).href;
-  } catch {
-    return "";
-  }
+  if (typeof s !== "string" || !s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  return s.startsWith("/") ? `${BASE}${s}` : `${BASE}/${s}`;
 }
 
-/** Decoded basename of a URL's path, e.g. ".../song_bass.wav?x=1" → "song_bass.wav". */
+/** Decoded basename of a URL's path, e.g. ".../song_bass.wav?x=1" → "song_bass.wav".
+ * Hand-parsed (no `new URL()`, see resolveUrl) so it works in the Extension Host runtime. */
 function urlBasename(url: string): string {
+  if (typeof url !== "string" || !url) return "";
+  const seg = url.split(/[?#]/)[0].split("/").pop() ?? "";
   try {
-    return decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "");
+    return decodeURIComponent(seg);
   } catch {
-    return "";
+    return seg;
   }
 }
 
@@ -187,18 +191,39 @@ function stemLabel(f: any): string | undefined {
   return undefined;
 }
 
+// Monotonic poll counter, module-level so the cache-bust query differs across polls.
+let pollSeq = 0;
+
 export async function getStatus(hash: string, fetchImpl: typeof fetch = fetch): Promise<StatusResult> {
-  // Cache-bust: mvsep/its CDN can otherwise pin a stale "done but no files yet" response
-  // across our rapid polls, so the stem URLs never appear to arrive.
-  const bust = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
-  const res = await fetchImpl(`${BASE}/api/separation/get?hash=${encodeURIComponent(hash)}&t=${bust}`, {
-    headers: { "cache-control": "no-cache" },
+  // Cache-bust the poll (unique URL + no-cache headers) so nothing pins a stale response.
+  const seq = ++pollSeq;
+  const bust = `${seq}-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+  const url = `${BASE}/api/separation/get?hash=${encodeURIComponent(hash)}&t=${bust}`;
+  const res = await fetchImpl(url, { headers: { "cache-control": "no-cache", pragma: "no-cache" } });
+  const json: any = await res.json().catch((e: unknown) => {
+    console.warn(`[mvsep] getStatus: non-JSON response (HTTP ${res.status}):`, e instanceof Error ? e.message : e);
+    return {};
   });
-  const json: any = await res.json().catch(() => ({}));
   const d = json?.data ?? {};
-  if (json?.status === "done" && Array.isArray(d.files)) {
-    const withUrl = d.files.filter((f: any) => fileUrl(f)).length;
-    console.info(`[mvsep] done poll: ${d.files.length} file entries, ${withUrl} with URLs`);
+  const rawFiles: any[] = Array.isArray(d.files) ? d.files : [];
+  const files: StatusFile[] = rawFiles
+    .map((f: any, i: number): StatusFile => {
+      const downloadUrl = fileUrl(f);
+      return { filename: fileName(f, downloadUrl, i), downloadUrl, stemName: stemLabel(f) };
+    })
+    .filter((f: StatusFile) => f.downloadUrl !== "");
+  if (json?.status === "done") {
+    if (rawFiles.length > 0 && files.length < rawFiles.length) {
+      // Loud on purpose: stem entries are present but some urls did not resolve. This is the
+      // exact signature of the bug that masqueraded as "done with no files" (a url helper
+      // failing in the Host runtime) — never let it stall silently again.
+      console.warn(
+        `[mvsep] getStatus: resolved only ${files.length}/${rawFiles.length} stem url(s); ` +
+          `${rawFiles.length - files.length} dropped (sample entry: ${JSON.stringify(rawFiles[0] ?? {}).slice(0, 120)})`,
+      );
+    } else {
+      console.info(`[mvsep] done: ${files.length}/${rawFiles.length} stem url(s) resolved`);
+    }
   }
   return {
     status: json?.status as SepStatus,
@@ -207,14 +232,7 @@ export async function getStatus(hash: string, fetchImpl: typeof fetch = fetch): 
     currentOrder: numOrUndef(d.current_order),
     finishedChunks: numOrUndef(d.finished_chunks),
     allChunks: numOrUndef(d.all_chunks),
-    files: Array.isArray(d.files)
-      ? d.files
-          .map((f: any, i: number): StatusFile => {
-            const downloadUrl = fileUrl(f);
-            return { filename: fileName(f, downloadUrl, i), downloadUrl, stemName: stemLabel(f) };
-          })
-          .filter((f: StatusFile) => f.downloadUrl !== "")
-      : [],
+    files,
   };
 }
 

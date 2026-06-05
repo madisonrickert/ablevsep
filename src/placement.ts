@@ -54,9 +54,21 @@ export async function placeStems(ctx: Ctx, req: PlaceRequest): Promise<void> {
     ),
   );
 
-  // 3. Color the stem clips and mute the original (grouped).
+  // 3. Color the stem clips and mute the original (grouped). Each write is guarded so a
+  //    cosmetic coloring failure can't prevent the mute (or vice versa), and any failure is
+  //    logged rather than silently swallowed (this is why a warped original once went unmuted).
   ctx.withinTransaction(() => {
-    for (const clip of clips) clip.color = color;
-    req.originalClip.muted = true;
+    for (const clip of clips) {
+      try {
+        clip.color = color;
+      } catch (e) {
+        console.warn("[mvsep] could not color a stem clip:", e instanceof Error ? e.message : e);
+      }
+    }
+    try {
+      req.originalClip.muted = true;
+    } catch (e) {
+      console.error("[mvsep] could not mute the original clip:", e instanceof Error ? (e.stack ?? e.message) : e);
+    }
   });
 }

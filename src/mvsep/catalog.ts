@@ -28,7 +28,8 @@ function safeParseOptions(s: unknown): Record<string, string> {
   try {
     const o = JSON.parse(s);
     return o && typeof o === "object" ? (o as Record<string, string>) : {};
-  } catch {
+  } catch (e) {
+    console.warn("[mvsep] catalog: could not parse algorithm field options:", e instanceof Error ? e.message : e);
     return {};
   }
 }
@@ -81,6 +82,10 @@ export async function loadCatalog(deps: {
     await deps.writeCache({ fetchedAt: deps.now(), algorithms });
     return algorithms;
   } catch (e) {
+    console.warn(
+      `[mvsep] catalog: fetch failed (${e instanceof Error ? e.message : e}); ` +
+        (cached ? "falling back to cached catalog" : "no cache available"),
+    );
     if (cached) return cached.algorithms;
     throw e;
   }

@@ -14,9 +14,20 @@ export function activate(activation: ActivationContext) {
     void (async () => {
       try {
         const clip = context.getObjectFromHandle(arg as Handle, AudioClip);
-        await runSeparation(context, { kind: "arrangement", clip });
+        // The "AudioClip" context menu fires for clips in BOTH Arrangement and Session view.
+        // A Session clip's parent is a ClipSlot; route it through the session flow so we
+        // separate its source file (not an empty arrangement render → silence) and place the
+        // stems back into Session slots rather than onto the Arrangement timeline.
+        const parent = clip.parent;
+        if (parent instanceof ClipSlot) {
+          console.info("[mvsep] AudioClip menu on a Session clip → session flow");
+          await runSeparation(context, { kind: "session", slot: parent, clip });
+        } else {
+          console.info("[mvsep] AudioClip menu on an Arrangement clip → arrangement flow");
+          await runSeparation(context, { kind: "arrangement", clip });
+        }
       } catch (e) {
-        console.error("[mvsep]", e);
+        console.error("[mvsep] separate.clip failed:", e instanceof Error ? (e.stack ?? e.message) : e);
       }
     })();
   });
@@ -32,7 +43,7 @@ export function activate(activation: ActivationContext) {
         }
         await runSeparation(context, { kind: "session", slot, clip });
       } catch (e) {
-        console.error("[mvsep]", e);
+        console.error("[mvsep] separate.slot failed:", e instanceof Error ? (e.stack ?? e.message) : e);
       }
     })();
   });

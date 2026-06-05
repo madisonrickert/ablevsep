@@ -2,7 +2,15 @@ import { describe, it, expect, vi } from "vitest";
 import { createSeparation, getStatus, downloadFile, checkToken, MvsepError } from "./client";
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
-  return { ok, status, json: async () => body, arrayBuffer: async () => new ArrayBuffer(0) } as unknown as Response;
+  const text = JSON.stringify(body);
+  return {
+    ok,
+    status,
+    json: async () => body,
+    text: async () => text,
+    headers: new Headers({ date: "Fri, 05 Jun 2026 22:00:00 GMT" }),
+    arrayBuffer: async () => new ArrayBuffer(0),
+  } as unknown as Response;
 }
 
 describe("createSeparation", () => {
@@ -99,6 +107,31 @@ describe("getStatus", () => {
     expect(s.files).toEqual([
       { filename: "song_bass.wav", downloadUrl: "https://mvsep.com/storage/x/song_bass.wav", stemName: "Bass" },
     ]);
+  });
+
+  it("extracts absolute stem urls even when the runtime's URL constructor throws (Extension Host parity)", async () => {
+    // Live's Extension Host runtime throws on `new URL()`; our parsing must not depend on it.
+    const realURL = globalThis.URL;
+    (globalThis as unknown as { URL: unknown }).URL = class {
+      constructor() {
+        throw new Error("URL is not supported in this runtime");
+      }
+    };
+    try {
+      const fetchImpl = vi.fn(async () =>
+        jsonResponse({
+          success: true,
+          status: "done",
+          data: { files: [{ type: "Bass", url: "https://mvsep.com/storage/processed/song_bass.wav", download: "song_bass.wav" }] },
+        }),
+      );
+      const s = await getStatus("h", fetchImpl as unknown as typeof fetch);
+      expect(s.files).toEqual([
+        { filename: "song_bass.wav", downloadUrl: "https://mvsep.com/storage/processed/song_bass.wav", stemName: "Bass" },
+      ]);
+    } finally {
+      (globalThis as unknown as { URL: unknown }).URL = realURL;
+    }
   });
 
   it("forces an audio extension when the entry has no usable name", async () => {
