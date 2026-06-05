@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root { color-scheme: dark; }
+      body { font: 13px -apple-system, "Segoe UI", sans-serif; margin: 0; padding: 12px; background: #1e1e1e; color: #ddd; }
+      h2 { font-size: 14px; margin: 0 0 8px; }
+      input[type="text"], input[type="password"], select { width: 100%; box-sizing: border-box; padding: 5px; background: #2b2b2b; color: #eee; border: 1px solid #444; border-radius: 4px; }
+      #list { height: 180px; overflow-y: auto; border: 1px solid #444; border-radius: 4px; margin: 6px 0; }
+      .row { padding: 5px 8px; cursor: pointer; border-bottom: 1px solid #2a2a2a; }
+      .row.sel { background: #0a64a4; color: #fff; }
+      .row small { color: #999; display: block; }
+      .field { margin: 6px 0; }
+      label { display: block; margin-bottom: 2px; color: #aaa; }
+      .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+      button { padding: 6px 14px; border-radius: 4px; border: 1px solid #555; background: #333; color: #eee; cursor: pointer; }
+      button.primary { background: #0a64a4; border-color: #0a64a4; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      a { color: #4ea1e0; }
+      .hint { color: #888; font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <h2>Separate with MVSEP</h2>
+    <input id="search" type="text" placeholder="Search models…" autocomplete="off" />
+    <div id="list"></div>
+    <div id="options"></div>
+    <div class="field">
+      <label>Output format</label>
+      <select id="format">
+        <option value="1">WAV 16-bit</option>
+        <option value="4">WAV 32-bit</option>
+        <option value="2">FLAC 16-bit</option>
+        <option value="5">FLAC 24-bit</option>
+        <option value="0">MP3 320</option>
+        <option value="3">M4A</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>mvsep API token <span class="hint">(<a href="https://mvsep.com/full_api" target="_blank">get one</a>)</span></label>
+      <input id="token" type="password" placeholder="paste token" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label><input type="checkbox" id="remember" /> Remember model, format &amp; token as default</label>
+    </div>
+    <div class="actions">
+      <button id="cancel">Cancel</button>
+      <button id="separate" class="primary" disabled>Separate</button>
+    </div>
+
+    <script>
+      const DATA = /*__PICKER_DATA__*/null;
+      const algos = (DATA && DATA.algorithms) || [];
+      const cfg = (DATA && DATA.config) || { outputFormat: 1 };
+
+      let selected = null;
+      const listEl = document.getElementById("list");
+      const optionsEl = document.getElementById("options");
+      const searchEl = document.getElementById("search");
+      const tokenEl = document.getElementById("token");
+      const formatEl = document.getElementById("format");
+      const rememberEl = document.getElementById("remember");
+      const separateEl = document.getElementById("separate");
+
+      tokenEl.value = cfg.apiToken || "";
+      formatEl.value = String(cfg.outputFormat != null ? cfg.outputFormat : 1);
+
+      function post(payload) {
+        const msg = { method: "close_and_send", params: [JSON.stringify(payload)] };
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.live) {
+          window.webkit.messageHandlers.live.postMessage(msg);
+        } else if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage(msg);
+        }
+      }
+
+      function renderOptions() {
+        optionsEl.innerHTML = "";
+        if (!selected) return;
+        const saved = cfg.lastModel && cfg.lastModel.renderId === selected.renderId ? cfg.lastModel.options || {} : {};
+        for (const f of selected.fields) {
+          const wrap = document.createElement("div");
+          wrap.className = "field";
+          const label = document.createElement("label");
+          label.textContent = f.text;
+          const sel = document.createElement("select");
+          sel.dataset.optName = f.name;
+          for (const [key, text] of Object.entries(f.options)) {
+            const o = document.createElement("option");
+            o.value = key; o.textContent = text; sel.appendChild(o);
+          }
+          sel.value = saved[f.name] != null ? saved[f.name] : f.defaultKey;
+          wrap.appendChild(label); wrap.appendChild(sel); optionsEl.appendChild(wrap);
+        }
+      }
+
+      function selectAlgo(a, rowEl) {
+        selected = a;
+        for (const el of listEl.querySelectorAll(".row.sel")) el.classList.remove("sel");
+        if (rowEl) rowEl.classList.add("sel");
+        renderOptions();
+        updateEnabled();
+      }
+
+      function renderList(filter) {
+        listEl.innerHTML = "";
+        const q = (filter || "").toLowerCase();
+        for (const a of algos) {
+          if (q && !(a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q))) continue;
+          const row = document.createElement("div");
+          row.className = "row";
+          row.innerHTML = "<span>" + escapeHtml(a.name) + "</span><small>" + escapeHtml(a.description || "") + "</small>";
+          row.onclick = () => selectAlgo(a, row);
+          if (selected && selected.renderId === a.renderId) row.classList.add("sel");
+          listEl.appendChild(row);
+        }
+      }
+
+      function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+      function updateEnabled() {
+        separateEl.disabled = !(selected && tokenEl.value.trim());
+      }
+
+      function collectOptions() {
+        const out = {};
+        for (const sel of optionsEl.querySelectorAll("select[data-opt-name]")) out[sel.dataset.optName] = sel.value;
+        return out;
+      }
+
+      searchEl.oninput = () => renderList(searchEl.value);
+      tokenEl.oninput = updateEnabled;
+      document.getElementById("cancel").onclick = () => post({ cancelled: true });
+      separateEl.onclick = () =>
+        post({
+          renderId: selected.renderId,
+          options: collectOptions(),
+          outputFormat: Number(formatEl.value),
+          apiToken: tokenEl.value.trim(),
+          remember: rememberEl.checked,
+        });
+
+      // Preselect last-used model if present.
+      if (cfg.lastModel) {
+        const last = algos.find((a) => a.renderId === cfg.lastModel.renderId);
+        if (last) selected = last;
+      }
+      renderList("");
+      renderOptions();
+      updateEnabled();
+    </script>
+  </body>
+</html>
