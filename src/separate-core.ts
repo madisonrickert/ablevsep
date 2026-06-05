@@ -25,17 +25,20 @@ export function progressFor(s: StatusResult, processingTick = 0): Progress {
         s.currentOrder != null && s.queueCount != null
           ? ` — position ${s.currentOrder} of ${s.queueCount}`
           : "…";
-      return { text: `Queued${pos}`, percent: 10 };
+      // Reserved 8–20% band for queue position. Mapped by YOUR position only
+      // (1/currentOrder), so it never lurches if queueCount (the denominator) changes.
+      const percent = s.currentOrder != null ? Math.min(20, Math.max(8, 8 + Math.round(12 / Math.max(s.currentOrder, 1)))) : 10;
+      return { text: `Queued${pos}`, percent };
     }
     case "distributing":
-      return { text: "Distributing across GPUs…", percent: 16 };
+      return { text: "Distributing across GPUs…", percent: 21 };
     case "processing": {
       if (s.allChunks && s.finishedChunks != null) {
         const frac = s.finishedChunks / s.allChunks;
-        return { text: `Processing… (${s.finishedChunks}/${s.allChunks})`, percent: 20 + Math.round(56 * frac) };
+        return { text: `Processing… (${s.finishedChunks}/${s.allChunks})`, percent: 22 + Math.round(54 * frac) };
       }
-      const creep = Math.round(56 * (1 - Math.exp(-processingTick / 6)));
-      return { text: "Processing…", percent: 20 + creep };
+      const creep = Math.round(54 * (1 - Math.exp(-processingTick / 6)));
+      return { text: "Processing…", percent: 22 + creep };
     }
     case "merging":
       return { text: "Merging results…", percent: 78 };
@@ -59,15 +62,22 @@ export async function pollUntilDone(
   },
 ): Promise<StatusFile[]> {
   let processingTick = 0;
+  let doneEmpty = 0;
   // eslint-disable-next-line no-constant-condition
   while (true) {
     if (deps.signal.aborted) throw new AbortError();
     const s = await deps.getStatus(hash);
     const tick = s.status === "processing" ? ++processingTick : 0;
     deps.onProgress(progressFor(s, tick));
-    if (s.status === "done") return s.files;
-    if (s.status === "failed") throw new MvsepError(s.message ?? "Separation failed");
-    if (s.status === "not_found") throw new MvsepError("Job not found or expired");
+    if (s.status === "done") {
+      if (s.files.length > 0) return s.files;
+      // mvsep reports "done" a beat before the file list is populated — keep polling.
+      if (++doneEmpty > 6) throw new MvsepError("Separation finished but returned no output files.");
+    } else if (s.status === "failed") {
+      throw new MvsepError(s.message ?? "Separation failed");
+    } else if (s.status === "not_found") {
+      throw new MvsepError("Job not found or expired");
+    }
     await deps.sleep(POLL_MS, deps.signal);
   }
 }

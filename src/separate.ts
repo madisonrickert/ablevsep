@@ -92,12 +92,18 @@ export async function runSeparation(
 
   try {
   await ctx.ui.withinProgressDialog("Separate with MVSEP", { progress: 0 }, async (update, signal) => {
+    // Monotonic progress: the bar never drifts backwards (text still updates freely).
+    let lastPercent = 0;
+    const report = (text: string, percent: number) => {
+      lastPercent = Math.max(lastPercent, percent);
+      return update(text, lastPercent);
+    };
     try {
       // 1. Acquire source audio.
       const preparingMsg = target.kind === "session" && target.clip.warping
         ? "Preparing audio… (warped clip — stems are best-effort)"
         : "Preparing audio…";
-      await update(preparingMsg, 5);
+      await report(preparingMsg, 3);
       let sourcePath: string;
       let sourceName: string;
       if (target.kind === "arrangement") {
@@ -111,7 +117,7 @@ export async function runSeparation(
       if (signal.aborted) return;
 
       // 2. Create the job.
-      await update("Uploading…", 12);
+      await report("Uploading…", 6);
       const fileBuf = await fsp.readFile(sourcePath);
       const hash = await createSeparation({
         apiToken: choice.apiToken,
@@ -129,16 +135,16 @@ export async function runSeparation(
         getStatus: (h) => getStatus(h),
         sleep,
         signal,
-        onProgress: (p) => void update(p.text, p.percent),
+        onProgress: (p) => void report(p.text, p.percent),
       });
       if (signal.aborted) return;
 
       // 4. Download stems.
       console.info(`[mvsep] done; ${files.length} file(s): ${files.map((f) => f.filename).join(", ")}`);
-      await update("Downloading stems…", 85);
       const localStems: { name: string; importedPath: string }[] = [];
       for (let i = 0; i < files.length; i++) {
         if (signal.aborted) return;
+        await report(`Downloading stems… (${i + 1}/${files.length})`, 82 + Math.round((10 * i) / Math.max(files.length, 1)));
         console.info(`[mvsep] download ${i + 1}/${files.length}: ${files[i].filename}`);
         const buf = await downloadFile(files[i].downloadUrl);
         const dest = await writeBuffer(tempDir, `${Date.now()}-${i}-${files[i].filename}`, buf);
@@ -150,7 +156,7 @@ export async function runSeparation(
 
       // 5. Place.
       console.info(`[mvsep] placing ${localStems.length} stem track(s) (${target.kind})`);
-      await update("Placing tracks…", 96);
+      await report("Placing tracks…", 94);
       const row = target.kind === "session"
         ? clipSlotRow(target.slot.handle.id, parentAudioTrackFromSlot(target.slot))
         : undefined;
@@ -161,7 +167,7 @@ export async function runSeparation(
         sessionRow: row,
         originalClip: target.clip,
       });
-      await update("Done — select the new tracks and press ⌘G to group them.", 100);
+      await report("Done — select the new tracks and press ⌘G to group them.", 100);
     } catch (e) {
       if (e instanceof AbortError || signal.aborted) return; // user cancelled
       throw e;
