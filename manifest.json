@@ -1,6 +1,6 @@
 {
-  "name": "MVSEP (Unofficial)",
-  "author": "Madison Rickert — unofficial, not affiliated with mvsep.com or Ableton",
+  "name": "AbleVSEP",
+  "author": "Madison Rickert",
   "entry": "dist/extension.js",
   "version": "0.1.0",
   "minimumApiVersion": "1.0.0"

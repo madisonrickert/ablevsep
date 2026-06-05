@@ -1,7 +1,7 @@
 {
   "name": "mvsep-ableton-extension",
   "version": "0.1.0",
-  "description": "Unofficial Ableton Live extension: separate audio clips into stems with mvsep.com",
+  "description": "AbleVSEP — Ableton Live extension that separates audio clips into stems via mvsep.com",
   "license": "MIT",
   "main": "dist/extension.js",
   "type": "module",

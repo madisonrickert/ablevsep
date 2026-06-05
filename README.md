@@ -1,12 +1,14 @@
-# MVSEP Stem Separation for Ableton Live (Unofficial)
+# AbleVSEP
 
-Right-click an audio clip in Ableton Live → **Separate with MVSEP** → pick any
+Right-click an audio clip in Ableton Live → **Separate Stems with MVSEP** → pick any
 [mvsep.com](https://mvsep.com) model → the stems come back as new, group-styled tracks.
 It mirrors Live's built-in Stem Separation workflow, but exposes mvsep's full model
 catalog (126+ models) instead of one fixed algorithm.
 
-> **Unofficial.** Not affiliated with, endorsed by, or supported by mvsep.com or Ableton AG.
-> You need your own mvsep API token; separations consume your mvsep credits.
+> **Disclaimer.** AbleVSEP is an independent, fan-made project. It is **not affiliated with,
+> endorsed by, or sponsored by Ableton AG or mvsep.com**. "Ableton" and "MVSEP" are
+> trademarks of their respective owners; AbleVSEP merely talks to the public mvsep.com API.
+> You need your own mvsep account and API token, and separations consume your mvsep credits.
 
 ## Features
 
@@ -123,4 +125,4 @@ npm run typecheck  # type-check the extension
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Unofficial; not affiliated with mvsep.com or Ableton AG.
+MIT — see [LICENSE](LICENSE). AbleVSEP is independent and not affiliated with Ableton AG or mvsep.com.
