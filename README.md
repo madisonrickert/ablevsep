@@ -5,7 +5,7 @@ Right-click an audio clip in Ableton Live → **Separate Stems with MVSEP** → 
 It mirrors Live's built-in Stem Separation workflow, but exposes mvsep's full model
 catalog (126+ models) instead of one fixed algorithm.
 
-> **Disclaimer.** AbleVSEP is an independent, fan-made project. It is **not affiliated with,
+> **Disclaimer.** AbleVSEP is an independent project. It is **not affiliated with,
 > endorsed by, or sponsored by Ableton AG or mvsep.com**. "Ableton" and "MVSEP" are
 > trademarks of their respective owners; AbleVSEP merely talks to the public mvsep.com API.
 > You need your own mvsep account and API token, and separations consume your mvsep credits.
