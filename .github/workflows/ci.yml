@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      # The Ableton Extensions SDK is a local beta tarball that is not published
+      # to npm and is intentionally not committed. CI verifies the SDK-independent
+      # core: the pure modules (mvsep client/catalog, config, placement-args,
+      # progress/poll, picker template, error dialog) and their unit tests.
+      - name: Drop the SDK dependencies for CI
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));for(const k of ['dependencies','devDependencies']){if(p[k]){delete p[k]['@ableton-extensions/sdk'];delete p[k]['@ableton-extensions/cli'];}}fs.writeFileSync('package.json',JSON.stringify(p,null,2));"
+
+      - name: Install dependencies
+        run: npm install --no-package-lock
+
+      - name: Unit tests
+        run: npm test
