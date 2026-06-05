@@ -177,8 +177,8 @@ export async function runSeparation(
     if (e instanceof AbortError) return;
     console.error("[mvsep] separation failed:", e instanceof Error ? (e.stack ?? e.message) : e);
     const msg = e instanceof MvsepError && e.code === 401
-      ? "Invalid mvsep API token. Check your token and run Separate with MVSEP again."
-      : (e instanceof Error ? e.message : "Separation failed.");
+      ? "Invalid mvsep API token. Replace it in the picker and try again."
+      : (e instanceof Error ? e.message : "The separation failed for an unknown reason.");
     await showError(ctx, msg);
   }
 }

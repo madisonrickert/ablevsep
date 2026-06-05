@@ -23,7 +23,7 @@ export function progressFor(s: StatusResult, processingTick = 0): Progress {
     case "waiting": {
       const pos =
         s.currentOrder != null && s.queueCount != null
-          ? `: position ${s.currentOrder} of ${s.queueCount}`
+          ? `: Position ${s.currentOrder} of ${s.queueCount}`
           : "…";
       // Reserved 8–20% band for queue position. Mapped by YOUR position only
       // (1/currentOrder), so it never lurches if queueCount (the denominator) changes.
@@ -74,11 +74,16 @@ export async function pollUntilDone(
     const s = await deps.getStatus(hash);
     if (s.status === "done" && s.files.length === 0) {
       // mvsep flips to "done" before the file list is written; show "Finalizing"
-      // (not "Done", which is misleading) and keep polling until the files appear.
-      deps.onProgress({ text: "Finalizing…", percent: 79 });
-      if (++doneEmpty > DONE_EMPTY_MAX) {
-        throw new MvsepError("Separation finished but mvsep returned no output files.");
+      // (not "Done", which is misleading) with elapsed time, and keep polling.
+      doneEmpty += 1;
+      if (doneEmpty > DONE_EMPTY_MAX) {
+        throw new MvsepError(
+          "mvsep reported the job as finished but did not return the stem files in time " +
+            "(waited ~2.5 minutes). This is usually a temporary mvsep-side issue; please try again.",
+        );
       }
+      const secs = Math.round((doneEmpty * POLL_MS) / 1000);
+      deps.onProgress({ text: `Finalizing… (${secs}s)`, percent: Math.min(81, 79 + Math.floor(doneEmpty / 10)) });
     } else {
       const tick = s.status === "processing" ? ++processingTick : 0;
       deps.onProgress(progressFor(s, tick));

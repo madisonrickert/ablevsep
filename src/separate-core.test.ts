@@ -7,7 +7,7 @@ const base: StatusResult = { status: "waiting", files: [] };
 describe("progressFor", () => {
   it("maps queue position into the reserved 8–20% band by position only", () => {
     expect(progressFor({ ...base, status: "waiting", currentOrder: 2, queueCount: 5 })).toMatchObject({
-      text: "Queued: position 2 of 5", percent: 14, // 8 + round(12/2)
+      text: "Queued: Position 2 of 5", percent: 14, // 8 + round(12/2)
     });
     // Denominator-independent: a larger queueCount must not change the percent.
     expect(progressFor({ ...base, status: "waiting", currentOrder: 2, queueCount: 999 }).percent).toBe(14);

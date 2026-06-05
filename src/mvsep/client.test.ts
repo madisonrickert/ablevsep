@@ -84,7 +84,7 @@ describe("getStatus", () => {
     );
     const s = await getStatus("h", fetchImpl as unknown as typeof fetch);
     expect(s).toMatchObject({ status: "processing", queueCount: 4, currentOrder: 2, finishedChunks: 1, allChunks: 3 });
-    expect(fetchImpl.mock.calls[0][0]).toBe("https://mvsep.com/api/separation/get?hash=h");
+    expect(fetchImpl.mock.calls[0][0]).toMatch(/^https:\/\/mvsep\.com\/api\/separation\/get\?hash=h&t=/);
   });
 
   it("maps done files from mvsep's real shape (url field, type label, download name)", async () => {

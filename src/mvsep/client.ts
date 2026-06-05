@@ -188,9 +188,18 @@ function stemLabel(f: any): string | undefined {
 }
 
 export async function getStatus(hash: string, fetchImpl: typeof fetch = fetch): Promise<StatusResult> {
-  const res = await fetchImpl(`${BASE}/api/separation/get?hash=${encodeURIComponent(hash)}`);
+  // Cache-bust: mvsep/its CDN can otherwise pin a stale "done but no files yet" response
+  // across our rapid polls, so the stem URLs never appear to arrive.
+  const bust = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+  const res = await fetchImpl(`${BASE}/api/separation/get?hash=${encodeURIComponent(hash)}&t=${bust}`, {
+    headers: { "cache-control": "no-cache" },
+  });
   const json: any = await res.json().catch(() => ({}));
   const d = json?.data ?? {};
+  if (json?.status === "done" && Array.isArray(d.files)) {
+    const withUrl = d.files.filter((f: any) => fileUrl(f)).length;
+    console.info(`[mvsep] done poll: ${d.files.length} file entries, ${withUrl} with URLs`);
+  }
   return {
     status: json?.status as SepStatus,
     message: d.message,
