@@ -1,8 +1,11 @@
 {
+  // Bundler resolution matches our toolchain (esbuild build + Vitest), so shipped
+  // modules can use extensionless relative imports. `tsc --noEmit` (in `npm run build`)
+  // type-checks the shipped code; test files are verified by Vitest at runtime.
   "compilerOptions": {
-    "module": "nodenext",
+    "module": "esnext",
     "target": "esnext",
-    "moduleResolution": "nodenext",
+    "moduleResolution": "bundler",
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
@@ -10,5 +13,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"]
 }
