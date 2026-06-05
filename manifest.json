@@ -1,0 +1,7 @@
+{
+  "name": "MVSEP Stem Separation (Unofficial)",
+  "author": "Madison Rickert — unofficial, not affiliated with mvsep.com or Ableton",
+  "entry": "dist/extension.js",
+  "version": "0.1.0",
+  "minimumApiVersion": "1.0.0"
+}

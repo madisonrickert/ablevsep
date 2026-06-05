@@ -1,0 +1,27 @@
+{
+  "name": "mvsep-ableton-extension",
+  "version": "0.1.0",
+  "description": "Unofficial Ableton Live extension: separate audio clips into stems with mvsep.com",
+  "main": "dist/extension.js",
+  "type": "module",
+  "engines": { "node": ">=22.11.0" },
+  "scripts": {
+    "build": "tsc --noEmit && tsx build.ts --production",
+    "build:dev": "tsc --noEmit && tsx build.ts",
+    "start": "npm run build:dev && extensions-cli run",
+    "package": "npm run build && extensions-cli package",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ableton-extensions/sdk": "file:vendor/ableton-extensions-sdk-1.0.0-beta.0.tgz"
+  },
+  "devDependencies": {
+    "@ableton-extensions/cli": "file:vendor/ableton-extensions-cli-1.0.0-beta.0.tgz",
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.0"
+  }
+}
