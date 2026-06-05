@@ -1,4 +1,4 @@
-import { MvsepError, type StatusResult, type StatusFile } from "./mvsep/client";
+import { MvsepError, POLL_MS, type StatusResult, type StatusFile } from "./mvsep/client";
 
 export class AbortError extends Error {
   constructor() {
@@ -52,6 +52,6 @@ export async function pollUntilDone(
     if (s.status === "done") return s.files;
     if (s.status === "failed") throw new MvsepError(s.message ?? "Separation failed");
     if (s.status === "not_found") throw new MvsepError("Job not found or expired");
-    await deps.sleep(2500, deps.signal);
+    await deps.sleep(POLL_MS, deps.signal);
   }
 }

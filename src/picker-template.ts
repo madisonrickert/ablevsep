@@ -22,7 +22,7 @@ export interface PickerResult {
 
 export function renderPickerHtml(shell: string, data: PickerData): string {
   // Use a function replacer so `$` sequences in the JSON aren't treated as patterns.
-  return shell.replace(PICKER_DATA_MARKER, () => JSON.stringify(data));
+  return shell.replace(PICKER_DATA_MARKER, () => JSON.stringify(data).replace(/<\/script>/gi, "<\\/script>"));
 }
 
 export function pickerDataUrl(html: string): string {

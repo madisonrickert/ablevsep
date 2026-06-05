@@ -14,6 +14,14 @@ describe("renderPickerHtml", () => {
     const json = html.match(/const DATA = (.*);<\/script>/)![1];
     expect(JSON.parse(json)).toEqual(data);
   });
+
+  it("neutralizes </script> sequences in injected data", () => {
+    const shell = `<script>const DATA = ${PICKER_DATA_MARKER};</script>`;
+    const evil = { algorithms: [{ renderId: 1, name: "x</script>y", description: "", orderId: 0, fields: [] }], config: { outputFormat: 1 } };
+    const html = renderPickerHtml(shell, evil as any);
+    expect(html).not.toContain("x</script>y");
+    expect(html).toContain("x<\\/script>y");
+  });
 });
 
 describe("pickerDataUrl", () => {

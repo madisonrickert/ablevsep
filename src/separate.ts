@@ -4,15 +4,15 @@ import {
   AudioClip,
   AudioTrack,
   ClipSlot,
-  DataModelObject,
   type ExtensionContext,
 } from "@ableton-extensions/sdk";
-import { createSeparation, downloadFile, getStatus, type StatusFile } from "./mvsep/client";
+import { createSeparation, downloadFile, getStatus, MvsepError, type StatusFile } from "./mvsep/client";
 import { loadCatalog, type CatalogCache } from "./mvsep/catalog";
 import { readConfig, writeConfig, type Config } from "./config";
 import { pollUntilDone, AbortError } from "./separate-core";
 import { openPicker } from "./picker";
 import { type PickerResult } from "./picker-template";
+import { showError } from "./error-dialog";
 import {
   type OriginalClipInfo,
 } from "./placement-args";
@@ -85,14 +85,18 @@ export async function runSeparation(
 
   const orig = clipInfo(target.clip);
 
+  try {
   await ctx.ui.withinProgressDialog("Separate with MVSEP", { progress: 0 }, async (update, signal) => {
     try {
       // 1. Acquire source audio.
-      await update("Preparing audio…", 5);
+      const preparingMsg = target.kind === "session" && target.clip.warping
+        ? "Preparing audio… (warped clip — stems are best-effort)"
+        : "Preparing audio…";
+      await update(preparingMsg, 5);
       let sourcePath: string;
       let sourceName: string;
       if (target.kind === "arrangement") {
-        const track = parentAudioTrack(target.clip as unknown as DataModelObject<"1.0.0">);
+        const track = parentAudioTrack(target.clip);
         sourcePath = await ctx.resources.renderPreFxAudio(track, target.clip.startTime, target.clip.endTime);
         sourceName = "source.wav";
       } else {
@@ -153,6 +157,13 @@ export async function runSeparation(
       throw e;
     }
   });
+  } catch (e) {
+    if (e instanceof AbortError) return;
+    const msg = e instanceof MvsepError && e.code === 401
+      ? "Invalid mvsep API token. Check your token and run Separate with MVSEP again."
+      : (e instanceof Error ? e.message : "Separation failed.");
+    await showError(ctx, msg);
+  }
 }
 
 function parentAudioTrackFromSlot(slot: ClipSlot<"1.0.0">) {
