@@ -52,10 +52,10 @@ export function progressFor(s: StatusResult, processingTick = 0): Progress {
   }
 }
 
-/** Max consecutive "done but no files yet" polls before giving up (~2.5 min at POLL_MS).
- * mvsep can report "done" well before the stem files are written, especially for
- * many-stem models, so this needs to be generous. */
-export const DONE_EMPTY_MAX = 60;
+/** Max consecutive "done but no files yet" polls before giving up (~1 min at POLL_MS).
+ * mvsep reports "done" before it finishes exporting/publishing the stem files; for
+ * many-stem models on a free account this can exceed the budget and time out. */
+export const DONE_EMPTY_MAX = 24;
 
 export async function pollUntilDone(
   hash: string,
@@ -78,12 +78,13 @@ export async function pollUntilDone(
       doneEmpty += 1;
       if (doneEmpty > DONE_EMPTY_MAX) {
         throw new MvsepError(
-          "mvsep reported the job as finished but did not return the stem files in time " +
-            "(waited ~2.5 minutes). This is usually a temporary mvsep-side issue; please try again.",
+          "mvsep finished the separation but did not publish the stem files within ~1 minute. " +
+            "Big multi-stem models can be slow to export on a free account; please try again, " +
+            "or use a model with fewer stems.",
         );
       }
       const secs = Math.round((doneEmpty * POLL_MS) / 1000);
-      deps.onProgress({ text: `Finalizing… (${secs}s)`, percent: Math.min(81, 79 + Math.floor(doneEmpty / 10)) });
+      deps.onProgress({ text: `mvsep is exporting stems… (${secs}s)`, percent: Math.min(81, 79 + Math.floor(doneEmpty / 10)) });
     } else {
       const tick = s.status === "processing" ? ++processingTick : 0;
       deps.onProgress(progressFor(s, tick));

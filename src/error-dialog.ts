@@ -42,7 +42,7 @@ h2{font-size:14px;margin:0 0 8px}p.msg{white-space:pre-wrap;color:#e88}
 .actions{display:flex;justify-content:flex-end;margin-top:14px}
 button{padding:6px 16px;border-radius:4px;border:1px solid #555;background:#333;color:#eee;cursor:pointer}
 </style></head><body><h2>AbleVSEP</h2><p class="msg">${safe}</p>
-<div class="report">If this keeps happening, please <a href="${issue}" target="_blank" rel="noreferrer">open a GitHub issue</a> and attach your log.<br>github.com/${REPO}/issues</div>
+<div class="report">If this keeps happening, please <a href="${issue}" target="_blank" rel="noreferrer">open a GitHub issue</a> and attach your log.</div>
 <div class="actions"><button id="ok">OK</button></div>
 <script>
 function post(){var m={method:"close_and_send",params:["ok"]};
