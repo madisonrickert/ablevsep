@@ -1,6 +1,8 @@
 import * as path from "node:path";
+import * as fsp from "node:fs/promises";
 import {
   AudioClip,
+  AudioTrack,
   ClipSlot,
   DataModelObject,
   type ExtensionContext,
@@ -90,7 +92,7 @@ export async function runSeparation(
       let sourcePath: string;
       let sourceName: string;
       if (target.kind === "arrangement") {
-        const track = parentAudioTrack(ctx, target.clip as unknown as DataModelObject<"1.0.0">);
+        const track = parentAudioTrack(target.clip as unknown as DataModelObject<"1.0.0">);
         sourcePath = await ctx.resources.renderPreFxAudio(track, target.clip.startTime, target.clip.endTime);
         sourceName = "source.wav";
       } else {
@@ -101,8 +103,7 @@ export async function runSeparation(
 
       // 2. Create the job.
       await update("Uploading…", 12);
-      const fs = await import("node:fs/promises");
-      const fileBuf = await fs.readFile(sourcePath);
+      const fileBuf = await fsp.readFile(sourcePath);
       const hash = await createSeparation({
         apiToken: choice.apiToken,
         file: new Blob([fileBuf]),
@@ -120,6 +121,7 @@ export async function runSeparation(
         signal,
         onProgress: (p) => void update(p.text, p.percent),
       });
+      if (signal.aborted) return;
 
       // 4. Download stems.
       await update("Downloading stems…", 85);
@@ -136,7 +138,7 @@ export async function runSeparation(
       // 5. Place.
       await update("Placing tracks…", 96);
       const row = target.kind === "session"
-        ? clipSlotRow(ctx, target.slot.handle.id, parentAudioTrackFromSlot(ctx, target.slot))
+        ? clipSlotRow(target.slot.handle.id, parentAudioTrackFromSlot(target.slot))
         : undefined;
       await placeStems(ctx, {
         kind: target.kind,
@@ -145,7 +147,7 @@ export async function runSeparation(
         sessionRow: row,
         originalClip: target.clip,
       });
-      await update("Done", 100);
+      await update("Done — select the new tracks and press ⌘G to group them.", 100);
     } catch (e) {
       if (e instanceof AbortError || signal.aborted) return; // user cancelled
       throw e;
@@ -153,9 +155,8 @@ export async function runSeparation(
   });
 }
 
-function parentAudioTrackFromSlot(ctx: Ctx, slot: ClipSlot<"1.0.0">) {
+function parentAudioTrackFromSlot(slot: ClipSlot<"1.0.0">) {
   const parent = slot.parent;
-  if (!parent) throw new Error("Clip slot has no parent track");
-  // parent of a ClipSlot is its Track (AudioTrack here).
-  return parent as unknown as import("@ableton-extensions/sdk").AudioTrack<"1.0.0">;
+  if (parent instanceof AudioTrack) return parent;
+  throw new Error("Clip slot's parent is not an AudioTrack");
 }

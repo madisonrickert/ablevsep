@@ -5,10 +5,7 @@ import {
   AudioTrack,
   DataModelObject,
   TakeLane,
-  type ExtensionContext,
 } from "@ableton-extensions/sdk";
-
-type Ctx = ExtensionContext<"1.0.0">;
 
 /** Resolve a stable directory, falling back to a per-user dir when the host omits one. */
 export function resolveDir(preferred: string | undefined, fallbackName: string): string {
@@ -30,7 +27,7 @@ export async function writeBuffer(dir: string, name: string, data: ArrayBuffer):
 }
 
 /** Walk up from an arrangement clip to its parent AudioTrack (through a TakeLane if present). */
-export function parentAudioTrack(ctx: Ctx, clip: DataModelObject<"1.0.0">): AudioTrack<"1.0.0"> {
+export function parentAudioTrack(clip: DataModelObject<"1.0.0">): AudioTrack<"1.0.0"> {
   let node: DataModelObject<"1.0.0"> | null = clip.parent;
   while (node) {
     if (node instanceof AudioTrack) return node;
@@ -44,7 +41,7 @@ export function parentAudioTrack(ctx: Ctx, clip: DataModelObject<"1.0.0">): Audi
 }
 
 /** Index of a clip slot within its track, used to place stems in the same Session row. */
-export function clipSlotRow(ctx: Ctx, slotHandleId: bigint, track: AudioTrack<"1.0.0">): number {
+export function clipSlotRow(slotHandleId: bigint, track: AudioTrack<"1.0.0">): number {
   const idx = track.clipSlots.findIndex((s) => s.handle.id === slotHandleId);
   if (idx < 0) throw new Error("Could not locate the clip slot on its track");
   return idx;
