@@ -20,14 +20,14 @@ export function activate(activation: ActivationContext) {
         // stems back into Session slots rather than onto the Arrangement timeline.
         const parent = clip.parent;
         if (parent instanceof ClipSlot) {
-          console.info("[mvsep] AudioClip menu on a Session clip → session flow");
+          console.info("[ablevsep] AudioClip menu on a Session clip → session flow");
           await runSeparation(context, { kind: "session", slot: parent, clip });
         } else {
-          console.info("[mvsep] AudioClip menu on an Arrangement clip → arrangement flow");
+          console.info("[ablevsep] AudioClip menu on an Arrangement clip → arrangement flow");
           await runSeparation(context, { kind: "arrangement", clip });
         }
       } catch (e) {
-        console.error("[mvsep] separate.clip failed:", e instanceof Error ? (e.stack ?? e.message) : e);
+        console.error("[ablevsep] separate.clip failed:", e instanceof Error ? (e.stack ?? e.message) : e);
       }
     })();
   });
@@ -38,12 +38,12 @@ export function activate(activation: ActivationContext) {
         const slot = context.getObjectFromHandle(arg as Handle, ClipSlot);
         const clip = slot.clip;
         if (!(clip instanceof AudioClip)) {
-          console.error("[mvsep] selected slot has no audio clip");
+          console.error("[ablevsep] selected slot has no audio clip");
           return;
         }
         await runSeparation(context, { kind: "session", slot, clip });
       } catch (e) {
-        console.error("[mvsep] separate.slot failed:", e instanceof Error ? (e.stack ?? e.message) : e);
+        console.error("[ablevsep] separate.slot failed:", e instanceof Error ? (e.stack ?? e.message) : e);
       }
     })();
   });

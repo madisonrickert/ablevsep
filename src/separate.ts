@@ -71,7 +71,7 @@ export async function runSeparation(
   // Launch health check: validate any saved token so the picker can show its status.
   const tokenStatus = config.apiToken ? await checkToken(config.apiToken) : undefined;
   console.info(
-    `[mvsep] launch: saved token ${config.apiToken ? "present" : "none"}; status ${JSON.stringify(tokenStatus ?? null)}`,
+    `[ablevsep] launch: saved token ${config.apiToken ? "present" : "none"}; status ${JSON.stringify(tokenStatus ?? null)}`,
   );
 
   const choice: PickerResult | null = await openPicker(ctx, {
@@ -127,7 +127,7 @@ export async function runSeparation(
         outputFormat: choice.outputFormat,
         options: choice.options,
       });
-      console.info(`[mvsep] job created: ${hash} (model ${choice.renderId}, format ${choice.outputFormat})`);
+      console.info(`[ablevsep] job created: ${hash} (model ${choice.renderId}, format ${choice.outputFormat})`);
       if (signal.aborted) return;
 
       // 3. Poll.
@@ -140,22 +140,21 @@ export async function runSeparation(
       if (signal.aborted) return;
 
       // 4. Download stems.
-      console.info(`[mvsep] done; ${files.length} file(s): ${files.map((f) => f.filename).join(", ")}`);
+      console.info(`[ablevsep] ${files.length} stem(s) ready, downloading`);
       const localStems: { name: string; importedPath: string }[] = [];
       for (let i = 0; i < files.length; i++) {
         if (signal.aborted) return;
         await report(`Downloading stems… (${i + 1}/${files.length})`, 85 + Math.round((7 * i) / Math.max(files.length, 1)));
-        console.info(`[mvsep] download ${i + 1}/${files.length}: ${files[i].filename}`);
         const buf = await downloadFile(files[i].downloadUrl);
         const dest = await writeBuffer(tempDir, `${Date.now()}-${i}-${files[i].filename}`, buf);
         const importedPath = await ctx.resources.importIntoProject(dest);
-        console.info(`[mvsep] imported: ${importedPath}`);
+        console.info(`[ablevsep] stem ${i + 1}/${files.length} imported: ${files[i].filename}`);
         localStems.push({ name: files[i].stemName ?? files[i].filename, importedPath });
       }
       if (signal.aborted) return;
 
       // 5. Place.
-      console.info(`[mvsep] placing ${localStems.length} stem track(s) (${target.kind})`);
+      console.info(`[ablevsep] placing ${localStems.length} stem track(s) (${target.kind})`);
       await report("Placing tracks…", 94);
       const row = target.kind === "session"
         ? clipSlotRow(target.slot.handle.id, parentAudioTrackFromSlot(target.slot))
@@ -175,7 +174,7 @@ export async function runSeparation(
   });
   } catch (e) {
     if (e instanceof AbortError) return;
-    console.error("[mvsep] separation failed:", e instanceof Error ? (e.stack ?? e.message) : e);
+    console.error("[ablevsep] separation failed:", e instanceof Error ? (e.stack ?? e.message) : e);
     const msg = e instanceof MvsepError && e.code === 401
       ? "Invalid mvsep API token. Replace it in the picker and try again."
       : (e instanceof Error ? e.message : "The separation failed for an unknown reason.");

@@ -62,13 +62,13 @@ export async function placeStems(ctx: Ctx, req: PlaceRequest): Promise<void> {
       try {
         clip.color = color;
       } catch (e) {
-        console.warn("[mvsep] could not color a stem clip:", e instanceof Error ? e.message : e);
+        console.warn("[ablevsep] could not color a stem clip:", e instanceof Error ? e.message : e);
       }
     }
     try {
       req.originalClip.muted = true;
     } catch (e) {
-      console.error("[mvsep] could not mute the original clip:", e instanceof Error ? (e.stack ?? e.message) : e);
+      console.error("[ablevsep] could not mute the original clip:", e instanceof Error ? (e.stack ?? e.message) : e);
     }
   });
 }

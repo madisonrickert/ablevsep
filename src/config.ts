@@ -20,7 +20,7 @@ export async function readConfig(
     // (which would silently drop the saved token), so surface that case.
     const msg = e instanceof Error ? e.message : String(e);
     if (!/ENOENT|no such file/i.test(msg)) {
-      console.warn("[mvsep] config: could not read/parse config, using defaults:", msg);
+      console.warn("[ablevsep] config: could not read/parse config, using defaults:", msg);
     }
     return { ...DEFAULT_CONFIG };
   }

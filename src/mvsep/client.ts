@@ -201,7 +201,7 @@ export async function getStatus(hash: string, fetchImpl: typeof fetch = fetch): 
   const url = `${BASE}/api/separation/get?hash=${encodeURIComponent(hash)}&t=${bust}`;
   const res = await fetchImpl(url, { headers: { "cache-control": "no-cache", pragma: "no-cache" } });
   const json: any = await res.json().catch((e: unknown) => {
-    console.warn(`[mvsep] getStatus: non-JSON response (HTTP ${res.status}):`, e instanceof Error ? e.message : e);
+    console.warn(`[ablevsep] getStatus: non-JSON response (HTTP ${res.status}):`, e instanceof Error ? e.message : e);
     return {};
   });
   const d = json?.data ?? {};
@@ -212,17 +212,18 @@ export async function getStatus(hash: string, fetchImpl: typeof fetch = fetch): 
       return { filename: fileName(f, downloadUrl, i), downloadUrl, stemName: stemLabel(f) };
     })
     .filter((f: StatusFile) => f.downloadUrl !== "");
-  if (json?.status === "done") {
-    if (rawFiles.length > 0 && files.length < rawFiles.length) {
+  // Only log once stem entries actually appear (skips the quiet done-but-exporting window).
+  if (json?.status === "done" && rawFiles.length > 0) {
+    if (files.length < rawFiles.length) {
       // Loud on purpose: stem entries are present but some urls did not resolve. This is the
       // exact signature of the bug that masqueraded as "done with no files" (a url helper
       // failing in the Host runtime) — never let it stall silently again.
       console.warn(
-        `[mvsep] getStatus: resolved only ${files.length}/${rawFiles.length} stem url(s); ` +
+        `[ablevsep] getStatus: resolved only ${files.length}/${rawFiles.length} stem url(s); ` +
           `${rawFiles.length - files.length} dropped (sample entry: ${JSON.stringify(rawFiles[0] ?? {}).slice(0, 120)})`,
       );
     } else {
-      console.info(`[mvsep] done: ${files.length}/${rawFiles.length} stem url(s) resolved`);
+      console.info(`[ablevsep] done: ${files.length}/${rawFiles.length} stem url(s) resolved`);
     }
   }
   return {
