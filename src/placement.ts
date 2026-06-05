@@ -1,5 +1,5 @@
 import {
-  AudioClip,
+  type AudioClip,
   type AudioTrack,
   type ExtensionContext,
 } from "@ableton-extensions/sdk";
@@ -18,32 +18,45 @@ export interface PlaceRequest {
   originalClip: AudioClip<"1.0.0">;
 }
 
-/** Creates one track per stem (adjacent, shared color, prefixed name) in a single undo step. */
+/**
+ * Creates one audio track per stem (adjacent, shared color, prefixed name).
+ *
+ * `withinTransaction` is strictly synchronous (no `await` inside) and you cannot
+ * create a track and then modify it in the same transaction — so per the SDK this
+ * is done as three sequential, cleanly-grouped undo steps:
+ *   1. create all tracks
+ *   2. name them + create their clips
+ *   3. color the clips + mute the original
+ * A single combined undo step is not achievable with this API.
+ */
 export async function placeStems(ctx: Ctx, req: PlaceRequest): Promise<void> {
   const song = ctx.application.song;
   const color = req.orig.color;
 
-  const promises = ctx.withinTransaction(() =>
-    req.stems.map((stem) =>
-      (async () => {
-        const stemName = stemNameFromFilename(stem.name);
-        const track: AudioTrack<"1.0.0"> = await song.createAudioTrack();
-        track.name = stemTrackName(req.orig.name, stemName);
+  // 1. Create all tracks (grouped).
+  const tracks: AudioTrack<"1.0.0">[] = await ctx.withinTransaction(() =>
+    Promise.all(req.stems.map(() => song.createAudioTrack())),
+  );
 
-        let clip: AudioClip<"1.0.0">;
+  // 2. Name each track and create its clip (grouped). All calls are synchronous
+  //    within the transaction; the returned promises are awaited outside it.
+  const clips: AudioClip<"1.0.0">[] = await ctx.withinTransaction(() =>
+    Promise.all(
+      req.stems.map((stem, i) => {
+        const track = tracks[i]!;
+        track.name = stemTrackName(req.orig.name, stemNameFromFilename(stem.name));
         if (req.kind === "arrangement") {
-          clip = await track.createAudioClip(arrangementClipArgs(stem.importedPath, req.orig));
-        } else {
-          const slot = track.clipSlots[req.sessionRow ?? 0]!;
-          clip = await slot.createAudioClip(sessionClipArgs(stem.importedPath, req.orig));
+          return track.createAudioClip(arrangementClipArgs(stem.importedPath, req.orig));
         }
-        clip.color = color;
-      })(),
+        const slot = track.clipSlots[req.sessionRow ?? 0]!;
+        return slot.createAudioClip(sessionClipArgs(stem.importedPath, req.orig));
+      }),
     ),
   );
 
-  await Promise.all(promises);
-
-  // Mute the original so the user hears the stems.
-  req.originalClip.muted = true;
+  // 3. Color the stem clips and mute the original (grouped).
+  ctx.withinTransaction(() => {
+    for (const clip of clips) clip.color = color;
+    req.originalClip.muted = true;
+  });
 }

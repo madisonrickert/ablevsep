@@ -8,8 +8,11 @@ export type SepStatus =
   | "not_found" | "waiting" | "processing" | "distributing" | "merging" | "done" | "failed";
 
 export interface StatusFile {
+  /** Filename WITH extension, safe to write to disk and import into Live. */
   filename: string;
   downloadUrl: string;
+  /** Clean stem label from mvsep (e.g. "Bass", "Vocals"), used for track names. */
+  stemName?: string;
 }
 
 export interface StatusResult {
@@ -129,6 +132,61 @@ export async function checkToken(apiToken: string, fetchImpl: typeof fetch = fet
   }
 }
 
+/** Resolves a possibly-relative URL against BASE using the built-in URL parser. */
+function resolveUrl(s: string): string {
+  try {
+    return new URL(s, BASE).href;
+  } catch {
+    return "";
+  }
+}
+
+/** Decoded basename of a URL's path, e.g. ".../song_bass.wav?x=1" → "song_bass.wav". */
+function urlBasename(url: string): string {
+  try {
+    return decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "");
+  } catch {
+    return "";
+  }
+}
+
+/** mvsep nests each stem's download URL under a varying field; scan robustly.
+ * NB: `download` holds the FILENAME (not a URL), so it is excluded here. */
+function fileUrl(f: any): string {
+  if (typeof f === "string") return f ? resolveUrl(f) : "";
+  for (const c of [f.url, f.download_url, f.link, f.file_url, f.path]) {
+    if (typeof c === "string" && c) return resolveUrl(c);
+  }
+  for (const v of Object.values(f)) {
+    if (typeof v === "string" && /^https?:\/\//i.test(v)) return resolveUrl(v);
+  }
+  return "";
+}
+
+/** Extension from the URL basename (e.g. ".wav"), defaulting to ".wav". */
+function urlExt(url: string): string {
+  const m = /\.([a-z0-9]{1,5})$/i.exec(urlBasename(url));
+  return m ? `.${m[1]}` : ".wav";
+}
+
+/** A filename WITH an audio extension — critical so importIntoProject recognises it. */
+function fileName(f: any, url: string, i: number): string {
+  let n = "";
+  if (typeof f === "string") n = urlBasename(url);
+  else if (typeof f.filename === "string" && f.filename) n = f.filename;
+  else if (typeof f.download === "string" && f.download) n = f.download;
+  if (!n) n = urlBasename(url);
+  if (!n) n = `stem-${i + 1}`;
+  if (!/\.[a-z0-9]{1,5}$/i.test(n)) n += urlExt(url);
+  return n;
+}
+
+/** Clean stem label, preferring mvsep's `type` ("Bass", "Vocals", …). */
+function stemLabel(f: any): string | undefined {
+  if (f && typeof f === "object" && typeof f.type === "string" && f.type) return f.type;
+  return undefined;
+}
+
 export async function getStatus(hash: string, fetchImpl: typeof fetch = fetch): Promise<StatusResult> {
   const res = await fetchImpl(`${BASE}/api/separation/get?hash=${encodeURIComponent(hash)}`);
   const json: any = await res.json().catch(() => ({}));
@@ -141,7 +199,12 @@ export async function getStatus(hash: string, fetchImpl: typeof fetch = fetch): 
     finishedChunks: numOrUndef(d.finished_chunks),
     allChunks: numOrUndef(d.all_chunks),
     files: Array.isArray(d.files)
-      ? d.files.map((f: any) => ({ filename: String(f.filename), downloadUrl: String(f.download_url) }))
+      ? d.files
+          .map((f: any, i: number): StatusFile => {
+            const downloadUrl = fileUrl(f);
+            return { filename: fileName(f, downloadUrl, i), downloadUrl, stemName: stemLabel(f) };
+          })
+          .filter((f: StatusFile) => f.downloadUrl !== "")
       : [],
   };
 }

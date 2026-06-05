@@ -87,12 +87,28 @@ describe("getStatus", () => {
     expect(fetchImpl.mock.calls[0][0]).toBe("https://mvsep.com/api/separation/get?hash=h");
   });
 
-  it("maps done files to {filename, downloadUrl}", async () => {
+  it("maps done files from mvsep's real shape (url field, type label, download name)", async () => {
     const fetchImpl = vi.fn(async () =>
-      jsonResponse({ success: true, status: "done", data: { files: [{ filename: "vocals.wav", download_url: "https://x/v.wav" }] } }),
+      jsonResponse({
+        success: true,
+        status: "done",
+        data: { files: [{ type: "Bass", url: "https://mvsep.com/storage/x/song_bass.wav", download: "song_bass.wav", size: "1.3 MB" }] },
+      }),
     );
     const s = await getStatus("h", fetchImpl as unknown as typeof fetch);
-    expect(s.files).toEqual([{ filename: "vocals.wav", downloadUrl: "https://x/v.wav" }]);
+    expect(s.files).toEqual([
+      { filename: "song_bass.wav", downloadUrl: "https://mvsep.com/storage/x/song_bass.wav", stemName: "Bass" },
+    ]);
+  });
+
+  it("forces an audio extension when the entry has no usable name", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ success: true, status: "done", data: { files: [{ type: "Vocals", url: "https://x/storage/abc?token=1" }] } }),
+    );
+    const s = await getStatus("h", fetchImpl as unknown as typeof fetch);
+    expect(s.files[0].filename).toMatch(/\.wav$/);
+    expect(s.files[0].downloadUrl).toBe("https://x/storage/abc?token=1");
+    expect(s.files[0].stemName).toBe("Vocals");
   });
 });
 

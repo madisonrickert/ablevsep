@@ -14,6 +14,7 @@
       .field { margin: 6px 0; }
       label { display: block; margin-bottom: 2px; color: #aaa; }
       .tokenrow { display: flex; gap: 8px; align-items: center; }
+      .tokenrow > input { flex: 1; min-width: 0; }
       .tokenrow #token-mask { flex: 1; font-family: ui-monospace, monospace; color: #bbb; overflow: hidden; white-space: nowrap; }
       .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
       button { padding: 6px 14px; border-radius: 4px; border: 1px solid #555; background: #333; color: #eee; cursor: pointer; }
@@ -47,7 +48,12 @@
           <button id="replace" type="button">Replace</button>
         </div>
       </div>
-      <input id="token" type="password" placeholder="paste token" autocomplete="off" style="display:none" />
+      <div id="token-entry" style="display:none">
+        <div class="tokenrow">
+          <input id="token" type="password" placeholder="paste token" autocomplete="off" />
+          <button id="save" type="button" disabled>Save</button>
+        </div>
+      </div>
       <div id="token-status" class="hint"></div>
     </div>
     <div class="actions">
@@ -67,14 +73,17 @@
       const searchEl = document.getElementById("search");
       const tokenEl = document.getElementById("token");
       const lockedEl = document.getElementById("token-locked");
+      const entryEl = document.getElementById("token-entry");
       const maskEl = document.getElementById("token-mask");
       const statusEl = document.getElementById("token-status");
       const replaceBtn = document.getElementById("replace");
+      const saveBtn = document.getElementById("save");
       const formatEl = document.getElementById("format");
       const separateEl = document.getElementById("separate");
 
-      const savedToken = cfg.apiToken || "";
+      let savedToken = cfg.apiToken || "";
       let replacing = !savedToken; // no saved token → start in entry mode
+      let freshSave = false; // token just saved this session (not yet health-checked)
 
       formatEl.value = String(cfg.outputFormat != null ? cfg.outputFormat : 1);
 
@@ -93,9 +102,12 @@
       function renderTokenUI() {
         const locked = savedToken && !replacing;
         lockedEl.style.display = locked ? "" : "none";
-        tokenEl.style.display = locked ? "none" : "";
+        entryEl.style.display = locked ? "none" : "";
         if (locked) maskEl.textContent = maskToken(savedToken);
-        if (locked && tokenStatus) {
+        if (locked && freshSave) {
+          statusEl.style.color = "#aaa";
+          statusEl.textContent = "token saved · validated on next launch";
+        } else if (locked && tokenStatus) {
           if (tokenStatus.valid) {
             statusEl.style.color = "#7bc47b";
             statusEl.textContent =
@@ -155,7 +167,10 @@
 
       function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-      function updateEnabled() { separateEl.disabled = !(selected && effectiveToken()); }
+      function updateEnabled() {
+        separateEl.disabled = !(selected && effectiveToken());
+        saveBtn.disabled = !tokenEl.value.trim();
+      }
 
       function collectOptions() {
         const out = {};
@@ -165,7 +180,34 @@
 
       searchEl.oninput = () => renderList(searchEl.value);
       tokenEl.oninput = updateEnabled;
-      replaceBtn.onclick = () => { replacing = true; tokenEl.value = ""; renderTokenUI(); tokenEl.focus(); };
+      replaceBtn.onclick = () => { replacing = true; freshSave = false; tokenEl.value = ""; renderTokenUI(); tokenEl.focus(); };
+      saveBtn.onclick = async () => {
+        const t = tokenEl.value.trim();
+        if (!t) return;
+        savedToken = t;
+        replacing = false;
+        freshSave = true;
+        renderTokenUI();
+        // Validate immediately. Best-effort: the webview may be blocked by CORS,
+        // in which case we fall back to validating on the next launch (node side).
+        statusEl.style.color = "#aaa";
+        statusEl.textContent = "checking token…";
+        try {
+          const res = await fetch("https://mvsep.com/api/app/user?api_token=" + encodeURIComponent(t));
+          const j = await res.json();
+          if (!res.ok || (j && j.success === false)) {
+            statusEl.style.color = "#e88";
+            statusEl.textContent = "✗ token invalid" + (j && j.data && j.data.message ? " (" + j.data.message + ")" : "");
+          } else {
+            const d = (j && j.data) || j || {};
+            statusEl.style.color = "#7bc47b";
+            statusEl.textContent = "✓ token valid" + (d.premium_minutes != null ? " · " + d.premium_minutes + " premium min" : "");
+          }
+        } catch (e) {
+          statusEl.style.color = "#aaa";
+          statusEl.textContent = "token saved · validates on next launch";
+        }
+      };
       document.getElementById("cancel").onclick = () => post({ cancelled: true });
       separateEl.onclick = () =>
         post({

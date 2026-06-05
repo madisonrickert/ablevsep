@@ -12,17 +12,31 @@ export interface Progress {
   percent: number;
 }
 
-export function progressFor(s: StatusResult): Progress {
+/**
+ * Maps an mvsep status to a progress label. `processingTick` is the number of
+ * consecutive `processing` polls so far: when mvsep reports no chunk counts (the
+ * common case), the percent creeps asymptotically from 20 toward ~76 across polls
+ * so the bar keeps moving instead of sitting flat.
+ */
+export function progressFor(s: StatusResult, processingTick = 0): Progress {
   switch (s.status) {
-    case "waiting":
-      return { text: `Queued — position ${s.currentOrder ?? "?"} of ${s.queueCount ?? "?"}`, percent: 20 };
-    case "processing": {
-      const frac = s.allChunks && s.finishedChunks != null ? s.finishedChunks / s.allChunks : 0;
-      const detail = s.allChunks ? ` (${s.finishedChunks}/${s.allChunks})` : "";
-      return { text: `Processing…${detail}`, percent: 20 + Math.round(frac * 60) };
+    case "waiting": {
+      const pos =
+        s.currentOrder != null && s.queueCount != null
+          ? ` — position ${s.currentOrder} of ${s.queueCount}`
+          : "…";
+      return { text: `Queued${pos}`, percent: 10 };
     }
     case "distributing":
-      return { text: "Distributing across GPUs…", percent: 30 };
+      return { text: "Distributing across GPUs…", percent: 16 };
+    case "processing": {
+      if (s.allChunks && s.finishedChunks != null) {
+        const frac = s.finishedChunks / s.allChunks;
+        return { text: `Processing… (${s.finishedChunks}/${s.allChunks})`, percent: 20 + Math.round(56 * frac) };
+      }
+      const creep = Math.round(56 * (1 - Math.exp(-processingTick / 6)));
+      return { text: "Processing…", percent: 20 + creep };
+    }
     case "merging":
       return { text: "Merging results…", percent: 78 };
     case "done":
@@ -44,11 +58,13 @@ export async function pollUntilDone(
     onProgress: (p: Progress) => void;
   },
 ): Promise<StatusFile[]> {
+  let processingTick = 0;
   // eslint-disable-next-line no-constant-condition
   while (true) {
     if (deps.signal.aborted) throw new AbortError();
     const s = await deps.getStatus(hash);
-    deps.onProgress(progressFor(s));
+    const tick = s.status === "processing" ? ++processingTick : 0;
+    deps.onProgress(progressFor(s, tick));
     if (s.status === "done") return s.files;
     if (s.status === "failed") throw new MvsepError(s.message ?? "Separation failed");
     if (s.status === "not_found") throw new MvsepError("Job not found or expired");

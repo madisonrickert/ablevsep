@@ -7,13 +7,23 @@ const base: StatusResult = { status: "waiting", files: [] };
 describe("progressFor", () => {
   it("shows queue position when waiting", () => {
     expect(progressFor({ ...base, status: "waiting", currentOrder: 2, queueCount: 5 })).toMatchObject({
-      text: "Queued — position 2 of 5", percent: 20,
+      text: "Queued — position 2 of 5", percent: 10,
     });
   });
 
   it("interpolates processing percent from chunks", () => {
     const p = progressFor({ ...base, status: "processing", finishedChunks: 3, allChunks: 6 });
-    expect(p.percent).toBe(50); // 20 + 0.5*60
+    expect(p.percent).toBe(48); // 20 + round(0.5*56)
+  });
+
+  it("creeps processing percent over poll ticks when there are no chunk counts", () => {
+    const p0 = progressFor({ ...base, status: "processing" }, 0).percent;
+    const p1 = progressFor({ ...base, status: "processing" }, 1).percent;
+    const p20 = progressFor({ ...base, status: "processing" }, 20).percent;
+    expect(p0).toBe(20);
+    expect(p1).toBeGreaterThan(p0);
+    expect(p20).toBeGreaterThan(p1);
+    expect(p20).toBeLessThanOrEqual(76); // asymptote stays below merging/done
   });
 
   it("maps terminal/other states", () => {

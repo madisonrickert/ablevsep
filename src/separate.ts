@@ -121,6 +121,7 @@ export async function runSeparation(
         outputFormat: choice.outputFormat,
         options: choice.options,
       });
+      console.info(`[mvsep] job created: ${hash} (model ${choice.renderId}, format ${choice.outputFormat})`);
       if (signal.aborted) return;
 
       // 3. Poll.
@@ -133,18 +134,22 @@ export async function runSeparation(
       if (signal.aborted) return;
 
       // 4. Download stems.
+      console.info(`[mvsep] done; ${files.length} file(s): ${files.map((f) => f.filename).join(", ")}`);
       await update("Downloading stems…", 85);
       const localStems: { name: string; importedPath: string }[] = [];
       for (let i = 0; i < files.length; i++) {
         if (signal.aborted) return;
+        console.info(`[mvsep] download ${i + 1}/${files.length}: ${files[i].filename}`);
         const buf = await downloadFile(files[i].downloadUrl);
         const dest = await writeBuffer(tempDir, `${Date.now()}-${i}-${files[i].filename}`, buf);
         const importedPath = await ctx.resources.importIntoProject(dest);
-        localStems.push({ name: files[i].filename, importedPath });
+        console.info(`[mvsep] imported: ${importedPath}`);
+        localStems.push({ name: files[i].stemName ?? files[i].filename, importedPath });
       }
       if (signal.aborted) return;
 
       // 5. Place.
+      console.info(`[mvsep] placing ${localStems.length} stem track(s) (${target.kind})`);
       await update("Placing tracks…", 96);
       const row = target.kind === "session"
         ? clipSlotRow(target.slot.handle.id, parentAudioTrackFromSlot(target.slot))
