@@ -23,7 +23,7 @@ export function progressFor(s: StatusResult, processingTick = 0): Progress {
     case "waiting": {
       const pos =
         s.currentOrder != null && s.queueCount != null
-          ? ` — position ${s.currentOrder} of ${s.queueCount}`
+          ? `: position ${s.currentOrder} of ${s.queueCount}`
           : "…";
       // Reserved 8–20% band for queue position. Mapped by YOUR position only
       // (1/currentOrder), so it never lurches if queueCount (the denominator) changes.
@@ -52,6 +52,11 @@ export function progressFor(s: StatusResult, processingTick = 0): Progress {
   }
 }
 
+/** Max consecutive "done but no files yet" polls before giving up (~2.5 min at POLL_MS).
+ * mvsep can report "done" well before the stem files are written, especially for
+ * many-stem models, so this needs to be generous. */
+export const DONE_EMPTY_MAX = 60;
+
 export async function pollUntilDone(
   hash: string,
   deps: {
@@ -67,16 +72,19 @@ export async function pollUntilDone(
   while (true) {
     if (deps.signal.aborted) throw new AbortError();
     const s = await deps.getStatus(hash);
-    const tick = s.status === "processing" ? ++processingTick : 0;
-    deps.onProgress(progressFor(s, tick));
-    if (s.status === "done") {
-      if (s.files.length > 0) return s.files;
-      // mvsep reports "done" a beat before the file list is populated — keep polling.
-      if (++doneEmpty > 6) throw new MvsepError("Separation finished but returned no output files.");
-    } else if (s.status === "failed") {
-      throw new MvsepError(s.message ?? "Separation failed");
-    } else if (s.status === "not_found") {
-      throw new MvsepError("Job not found or expired");
+    if (s.status === "done" && s.files.length === 0) {
+      // mvsep flips to "done" before the file list is written; show "Finalizing"
+      // (not "Done", which is misleading) and keep polling until the files appear.
+      deps.onProgress({ text: "Finalizing…", percent: 79 });
+      if (++doneEmpty > DONE_EMPTY_MAX) {
+        throw new MvsepError("Separation finished but mvsep returned no output files.");
+      }
+    } else {
+      const tick = s.status === "processing" ? ++processingTick : 0;
+      deps.onProgress(progressFor(s, tick));
+      if (s.status === "done") return s.files;
+      if (s.status === "failed") throw new MvsepError(s.message ?? "Separation failed");
+      if (s.status === "not_found") throw new MvsepError("Job not found or expired");
     }
     await deps.sleep(POLL_MS, deps.signal);
   }

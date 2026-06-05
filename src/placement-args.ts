@@ -38,7 +38,7 @@ export function stemNameFromFilename(filename: string): string {
 
 export function stemTrackName(clipName: string, stemName: string): string {
   const base = clipName.trim() ? clipName.trim() : "Clip";
-  return `${base} — ${stemName}`;
+  return `${base} - ${stemName}`;
 }
 
 export function arrangementClipArgs(filePath: string, orig: OriginalClipInfo): ArrangementClipArgs {

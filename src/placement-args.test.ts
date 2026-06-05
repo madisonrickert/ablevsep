@@ -15,8 +15,8 @@ describe("names", () => {
   });
 
   it("builds a prefixed track name and handles blank clip names", () => {
-    expect(stemTrackName("Lead Vox", "vocals")).toBe("Lead Vox — vocals");
-    expect(stemTrackName("   ", "drums")).toBe("Clip — drums");
+    expect(stemTrackName("Lead Vox", "vocals")).toBe("Lead Vox - vocals");
+    expect(stemTrackName("   ", "drums")).toBe("Clip - drums");
   });
 });
 

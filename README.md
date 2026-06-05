@@ -14,7 +14,7 @@ catalog (126+ models) instead of one fixed algorithm.
 
 - Separate an **Arrangement audio clip** or a **Session clip slot** into stems.
 - Choose **any** mvsep model from a searchable picker, with that model's variant options.
-- Stems land as new adjacent tracks named `<clip> — <stem>`, tinted the original clip's
+- Stems land as new adjacent tracks named `<clip> - <stem>`, tinted the original clip's
   color, with the original muted (press ⌘G to fold them into a group).
 - Cancellable progress; your API token and last-used model are remembered.
 
@@ -27,37 +27,37 @@ is only touched at the orchestration edge.
 
 ## Install
 
-Download the latest **`.ablx`** from the Releases page (or build one — see
+Download the latest **`.ablx`** from the Releases page (or build one, see
 [Build from source](#build-from-source)), then:
 
 1. In Ableton Live, open **Preferences → Extensions** (with Developer Mode **off**, so Live
    manages the extension).
 2. Drag the `.ablx` onto that page.
-3. Right-click an audio clip → **Separate with MVSEP**.
+3. Right-click an audio clip → **Separate Stems with MVSEP**.
 
 ## Usage
 
-1. Right-click an **audio clip** (Arrangement) or a **Session clip slot** → **Separate with MVSEP**.
+1. Right-click an **audio clip** (Arrangement) or a **Session clip slot** → **Separate Stems with MVSEP**.
 2. Search/select a model, set its options + output format, paste your mvsep API token
    (optionally "remember as default"), click **Separate**.
-3. Stems arrive as new tracks named `<clip> — <stem>`, tinted the original clip's color,
+3. Stems arrive as new tracks named `<clip> - <stem>`, tinted the original clip's color,
    with the original muted.
 4. **To group them:** select the new tracks and press **⌘G** (Live's extension API can't
    create a group track programmatically).
 
 ## Requirements
 
-**To install and use** — only Ableton Live:
+**To install and use**, you need only Ableton Live:
 
 - **Ableton Live 12 with Extensions enabled** (the Extensions feature ships in the Live 12
   beta). The `.ablx` is self-contained and runs inside Live's Extension Host, so you do
   **not** need Node.js or the SDK installed to use it.
-- An **mvsep API token** — see <https://mvsep.com/full_api>.
+- An **mvsep API token**, see <https://mvsep.com/full_api>.
 
 **To build from source** (development only):
 
 - **Node.js ≥ 24**.
-- The **Ableton Extensions SDK (beta)** — distributed by Ableton and **not** included in
+- The **Ableton Extensions SDK (beta)**, distributed by Ableton and **not** included in
   this repository (see below).
 
 ## Build from source
@@ -79,7 +79,7 @@ not bundled here. Obtain it from Ableton, then:
 
 The fastest loop uses Live's Developer Mode and an externally-launched Extension Host:
 
-1. In your `.env`, set **`EXTENSION_HOST_PATH`** to your Live app — point it at the Beta for
+1. In your `.env`, set **`EXTENSION_HOST_PATH`** to your Live app, pointed at the Beta for
    live iteration, e.g. `/Applications/Ableton Live 12 Beta.app`.
 2. In Live: **Preferences → Extensions → enable Developer Mode** (Live releases its managed
    host so the externally-launched one can connect).
@@ -89,7 +89,7 @@ The fastest loop uses Live's Developer Mode and an externally-launched Extension
    ```
    `npm start` builds in dev mode and runs `extensions-cli run`, pointing storage/temp at
    `./.dev/` (git-ignored) so your token and catalog cache persist between runs.
-4. Right-click an audio clip → **Separate with MVSEP**.
+4. Right-click an audio clip → **Separate Stems with MVSEP**.
 
 ## Build & package
 
@@ -116,13 +116,13 @@ npm run typecheck  # type-check the extension
   place stems 1:1 at the original position. Faithful to Live's built-in stem separation.
 - **Session clips** separate the clip's **source file** (no arrangement render is
   available). Unwarped clips get their region mirrored onto the stems; **warped Session
-  clips are best-effort** — the placed region may not match what the clip played (surfaced
+  clips are best-effort**: the placed region may not match what the clip played (surfaced
   in-app).
 - Stems are placed **unwarped** (the Live API can't author warp markers), so they won't
   re-stretch if you change the project tempo later.
-- No true Live **group** track (the SDK has no group-creation API) — hence the ⌘G hint.
+- No true Live **group** track (the SDK has no group-creation API), hence the ⌘G hint.
 - Non-premium mvsep accounts allow **one job at a time**; v1 separates one clip per run.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). AbleVSEP is independent and not affiliated with Ableton AG or mvsep.com.
+MIT. See [LICENSE](LICENSE). AbleVSEP is independent and not affiliated with Ableton AG or mvsep.com.

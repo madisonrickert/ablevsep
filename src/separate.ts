@@ -101,7 +101,7 @@ export async function runSeparation(
     try {
       // 1. Acquire source audio.
       const preparingMsg = target.kind === "session" && target.clip.warping
-        ? "Preparing audio… (warped clip — stems are best-effort)"
+        ? "Preparing audio… (warped clip, stems are best-effort)"
         : "Preparing audio…";
       await report(preparingMsg, 3);
       let sourcePath: string;
@@ -167,7 +167,7 @@ export async function runSeparation(
         sessionRow: row,
         originalClip: target.clip,
       });
-      await report("Done — select the new tracks and press ⌘G to group them.", 100);
+      await report("Done. Select the new tracks and press ⌘G to group them.", 100);
     } catch (e) {
       if (e instanceof AbortError || signal.aborted) return; // user cancelled
       throw e;
