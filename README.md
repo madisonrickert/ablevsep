@@ -7,12 +7,9 @@ Right-click an audio clip in Ableton Live → **Separate Stems with MVSEP** → 
 It mirrors Live's built-in Stem Separation workflow, but exposes mvsep's full model
 catalog (126+ models) instead of one fixed algorithm.
 
-![AbleVSEP: separate any audio clip into stems with any of mvsep.com's 126+ models, right inside Ableton Live](docs/social-preview.png)
+> **Unofficial.** AbleVSEP is **not affiliated with, endorsed by, or sponsored by Ableton or MVSEP**.
 
-> **Disclaimer.** AbleVSEP is an independent project. It is **not affiliated with,
-> endorsed by, or sponsored by Ableton AG or mvsep.com**. "Ableton" and "MVSEP" are
-> trademarks of their respective owners; AbleVSEP merely talks to the public mvsep.com API.
-> You need your own mvsep account and API token, and separations consume your mvsep credits.
+![AbleVSEP: separate any audio clip into stems with any of mvsep.com's 126+ models, right inside Ableton Live](docs/social-preview.png)
 
 ## Features
 
@@ -66,9 +63,7 @@ it entirely, regenerate it on [mvsep.com](https://mvsep.com/full_api).
 
 **To install and use**, you need only Ableton Live:
 
-- **Ableton Live 12 with Extensions enabled** (the Extensions feature ships in the Live 12
-  beta). The `.ablx` is self-contained and runs inside Live's Extension Host, so you do
-  **not** need Node.js or the SDK installed to use it.
+- **Ableton Live Suite 12.4.5+ with Extensions enabled** (tested on Ableton Beta 12.4.5b3). The `.ablx` is self-contained and runs inside Live's Extension Host.
 - An **mvsep API token**, see <https://mvsep.com/full_api>.
 
 **To build from source** (development only):
@@ -139,7 +134,3 @@ npm run typecheck  # type-check the extension
   re-stretch if you change the project tempo later.
 - No true Live **group** track (the SDK has no group-creation API), hence the ⌘G hint.
 - Non-premium mvsep accounts allow **one job at a time**; v1 separates one clip per run.
-
-## License
-
-MIT. See [LICENSE](LICENSE). AbleVSEP is independent and not affiliated with Ableton AG or mvsep.com.
