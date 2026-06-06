@@ -17,7 +17,6 @@ catalog (126+ models) instead of one fixed algorithm.
 - Choose **any** mvsep model from a searchable picker, with that model's variant options.
 - Stems land as new adjacent tracks named `<clip> - <stem>`, each in its own track color
   for easy visual separation, with the original muted (press ⌘G to fold them into a group).
-- Cancellable progress; your API token and last-used model are remembered.
 
 ## How it works
 
@@ -51,17 +50,9 @@ one, see [Build from source](#build-from-source)), then:
 
 ![The model picker: search 126+ mvsep models, pick variant options and output format, and paste your API token](docs/screenshot-picker.png)
 
-## Your mvsep token & privacy
-
-AbleVSEP talks only to mvsep.com. Your API token is stored locally in the extension's
-private storage folder (managed by Live's Extension Host) and is sent only to mvsep.com's
-API over HTTPS to run separations. AbleVSEP has no analytics or telemetry and makes no
-other network calls. To replace a saved token, click **Replace** in the picker; to revoke
-it entirely, regenerate it on [mvsep.com](https://mvsep.com/full_api).
-
 ## Requirements
 
-**To install and use**, you need only Ableton Live:
+**To install and use**:
 
 - **Ableton Live Suite 12.4.5+ with Extensions enabled** (tested on Ableton Beta 12.4.5b3). The `.ablx` is self-contained and runs inside Live's Extension Host.
 - An **mvsep API token**, see <https://mvsep.com/full_api>.
