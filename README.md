@@ -22,8 +22,7 @@ catalog (126+ models) instead of one fixed algorithm.
 
 The extension renders/reads the clip's audio, uploads it to mvsep's separation API with
 your chosen model, polls until the job finishes, downloads the stems, and places them back
-into your set. All mvsep-facing logic lives in pure, unit-tested modules; the Ableton SDK
-is only touched at the orchestration edge.
+into your set.
 
 ![A clip being separated into stems, which arrive as new color-coded tracks in the arrangement (2× speed)](docs/demo.gif)
 
