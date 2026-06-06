@@ -3,30 +3,94 @@
   <head>
     <meta charset="utf-8" />
     <style>
-      :root { color-scheme: dark; }
-      body { font: 13px -apple-system, "Segoe UI", sans-serif; margin: 0; padding: 12px; background: #1e1e1e; color: #ddd; }
-      h2 { font-size: 14px; margin: 0 0 8px; }
-      input[type="text"], input[type="password"], select { width: 100%; box-sizing: border-box; padding: 5px; background: #2b2b2b; color: #eee; border: 1px solid #444; border-radius: 4px; }
-      #list { height: 180px; overflow-y: auto; border: 1px solid #444; border-radius: 4px; margin: 6px 0; }
-      .row { padding: 5px 8px; cursor: pointer; border-bottom: 1px solid #2a2a2a; }
-      .row.sel { background: #0a64a4; color: #fff; }
-      .row small { color: #999; display: block; }
-      .field { margin: 6px 0; }
-      label { display: block; margin-bottom: 2px; color: #aaa; }
+      :root {
+        color-scheme: dark;
+        --bg: #1b1b1b; --panel: #242424; --panel-2: #2e2e2e;
+        --line: #383838; --line-soft: #2f2f2f;
+        --text: #e7e7e7; --text-dim: #9c9c9c; --text-faint: #6e6e6e;
+        --accent: #4a9eff; --accent-tint: #15314e;
+        --ok: #62c281; --warn: #e8746b; --radius: 6px;
+      }
+      * { box-sizing: border-box; }
+      html, body { overflow-x: hidden; }
+      body {
+        font: 13px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif;
+        margin: 0; padding: 14px 14px 12px; background: var(--bg); color: var(--text);
+        -webkit-font-smoothing: antialiased;
+        display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+      }
+      header { margin: 0 0 13px; }
+      .brand { display: flex; align-items: baseline; gap: 8px; }
+      .brand h1 { font-size: 15px; font-weight: 650; letter-spacing: .2px; margin: 0; }
+      .brand .sub { font-size: 11px; color: var(--text-faint); letter-spacing: .3px; text-transform: uppercase; }
+      .rule { height: 2px; margin-top: 9px; border-radius: 2px;
+        background: linear-gradient(90deg, var(--accent), rgba(74,158,255,0) 65%); opacity: .8; }
+      input[type="text"], input[type="password"], select {
+        width: 100%; padding: 8px 10px; background: var(--panel); color: var(--text);
+        border: 1px solid var(--line); border-radius: var(--radius); outline: none;
+        transition: border-color .12s, box-shadow .12s;
+      }
+      input::placeholder { color: var(--text-faint); }
+      input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(74,158,255,.16); }
+      #list { flex: 1 1 0; min-height: 0; overflow-y: auto; margin: 8px 0 0;
+        border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+      #list::-webkit-scrollbar { width: 10px; }
+      #list::-webkit-scrollbar-thumb { background: #3d3d3d; border-radius: 5px; border: 2px solid var(--panel); }
+      .row { position: relative; padding: 8px 11px; cursor: pointer;
+        border-bottom: 1px solid var(--line-soft); border-left: 2px solid transparent; transition: background .1s; }
+      .row:last-child { border-bottom: 0; }
+      .row:hover { background: #2a2a2a; }
+      .row span { display: block; font-weight: 550; }
+      .row small { display: block; margin-top: 1px; color: var(--text-dim); font-size: 11.5px; line-height: 1.35; }
+      .row.sel { background: var(--accent-tint); border-left-color: var(--accent); }
+      .row.sel span { color: #fff; }
+      .row.sel small { color: #bcd6f2; }
+      .field { margin: 11px 0; }
+      label { display: block; margin-bottom: 4px; color: var(--text-dim); font-size: 11.5px; font-weight: 500; }
       .tokenrow { display: flex; gap: 8px; align-items: center; }
       .tokenrow > input { flex: 1; min-width: 0; }
-      .tokenrow #token-mask { flex: 1; font-family: ui-monospace, monospace; color: #bbb; overflow: hidden; white-space: nowrap; }
-      .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
-      button { padding: 6px 14px; border-radius: 4px; border: 1px solid #555; background: #333; color: #eee; cursor: pointer; }
-      button.primary { background: #0a64a4; border-color: #0a64a4; }
-      button:disabled { opacity: 0.5; cursor: default; }
-      a { color: #4ea1e0; }
-      .hint { color: #888; font-size: 11px; margin-top: 3px; }
+      #token-mask { flex: 1; min-width: 0; padding: 7px 10px; border-radius: var(--radius);
+        background: var(--panel); border: 1px solid var(--line); font-family: ui-monospace, monospace;
+        letter-spacing: 1px; color: var(--text-dim); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 15px; }
+      .actions-right { display: flex; gap: 8px; }
+      button { padding: 7px 13px; border-radius: var(--radius); border: 1px solid var(--line);
+        background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 12.5px;
+        transition: background .12s, border-color .12s, opacity .12s; }
+      button:hover:not(:disabled) { background: #383838; }
+      button:disabled { opacity: .45; cursor: default; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #06243f; font-weight: 600; }
+      button.primary:hover:not(:disabled) { background: #63acff; }
+      #replace, #save { flex: 0 0 auto; }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .hint { color: var(--text-faint); font-size: 11px; margin-top: 5px; }
+      #token-status { margin-top: 7px; font-size: 11.5px; }
+      .credits-link { color: var(--text-faint); font-size: 11.5px; cursor: pointer; user-select: none; }
+      .credits-link:hover { color: var(--text-dim); text-decoration: none; }
+      /* Credits overlay */
+      .overlay { position: fixed; inset: 0; background: var(--bg); padding: 16px;
+        display: flex; flex-direction: column; z-index: 10; }
+      .overlay h2 { font-size: 15px; font-weight: 650; margin: 2px 0 0; }
+      .overlay .tagline { color: var(--text-dim); font-size: 12px; margin: 8px 0 12px; line-height: 1.5; }
+      .overlay .bio { color: var(--text); font-size: 12.5px; line-height: 1.6; margin: 0 0 14px; }
+      .credit-block { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
+        padding: 4px 12px; }
+      .credit-row { display: flex; justify-content: space-between; align-items: baseline;
+        padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+      .credit-row:last-child { border-bottom: 0; }
+      .credit-row > span { color: var(--text-faint); font-size: 11.5px; text-transform: uppercase; letter-spacing: .3px; }
+      .credit-row > a { font-size: 13px; }
+      .overlay .ack { color: var(--text-faint); font-size: 11px; line-height: 1.5; margin: 14px 0 0; }
+      .overlay .actions { margin-top: auto; justify-content: flex-end; }
     </style>
   </head>
   <body>
-    <h2>Separate with MVSEP</h2>
-    <input id="search" type="text" placeholder="Search models…" autocomplete="off" />
+    <header>
+      <div class="brand"><h1>MVSEP</h1><span class="sub">stem separation</span></div>
+      <div class="rule"></div>
+    </header>
+    <input id="search" type="text" placeholder="Search 126+ models…" autocomplete="off" />
     <div id="list"></div>
     <div id="options"></div>
     <div class="field">
@@ -57,8 +121,18 @@
       <div id="token-status" class="hint"></div>
     </div>
     <div class="actions">
-      <button id="cancel">Cancel</button>
-      <button id="separate" class="primary" disabled>Separate</button>
+      <a id="credits-link" class="credits-link">Credits</a>
+      <div class="actions-right">
+        <button id="cancel">Cancel</button>
+        <button id="separate" class="primary" disabled>Separate</button>
+      </div>
+    </div>
+
+    <div id="credits" class="overlay" style="display:none">
+      <h2>AbleVSEP</h2>
+      <p class="tagline">An unofficial Ableton Live client for <a href="https://mvsep.com" target="_blank" rel="noreferrer">MVSEP</a> stem separation.</p>
+      <p class="bio"><strong>About the Creator:</strong> Hope you're enjoying using AbleVSEP! I'm <a href="https://madisonrickert.com" target="_blank" rel="noreferrer">Madison Rickert</a>. I've been both a software engineer and a musician for over 20 years, and it's my joy building tools to empower artists. I create and perform my own music as <a href="https://toefood.music" target="_blank" rel="noreferrer">Toefood</a>.</p>
+      <div class="actions"><button id="credits-close">Back</button></div>
     </div>
 
     <script>
@@ -125,22 +199,25 @@
 
       function renderOptions() {
         optionsEl.innerHTML = "";
-        if (!selected) return;
-        const saved = cfg.lastModel && cfg.lastModel.renderId === selected.renderId ? cfg.lastModel.options || {} : {};
-        for (const f of selected.fields) {
-          const wrap = document.createElement("div");
-          wrap.className = "field";
-          const label = document.createElement("label");
-          label.textContent = f.text;
-          const sel = document.createElement("select");
-          sel.dataset.optName = f.name;
-          for (const [key, text] of Object.entries(f.options)) {
-            const o = document.createElement("option");
-            o.value = key; o.textContent = text; sel.appendChild(o);
+        if (selected) {
+          const saved = cfg.lastModel && cfg.lastModel.renderId === selected.renderId ? cfg.lastModel.options || {} : {};
+          for (const f of selected.fields) {
+            const wrap = document.createElement("div");
+            wrap.className = "field";
+            const label = document.createElement("label");
+            label.textContent = f.text;
+            const sel = document.createElement("select");
+            sel.dataset.optName = f.name;
+            for (const [key, text] of Object.entries(f.options)) {
+              const o = document.createElement("option");
+              o.value = key; o.textContent = text; sel.appendChild(o);
+            }
+            sel.value = saved[f.name] != null ? saved[f.name] : f.defaultKey;
+            wrap.appendChild(label); wrap.appendChild(sel); optionsEl.appendChild(wrap);
           }
-          sel.value = saved[f.name] != null ? saved[f.name] : f.defaultKey;
-          wrap.appendChild(label); wrap.appendChild(sel); optionsEl.appendChild(wrap);
         }
+        // The model list is flex: 1 (min-height: 0), so it absorbs all remaining height and
+        // shrinks to make room for any options — keeping the panel full with no scrolling.
       }
 
       function selectAlgo(a, rowEl) {
@@ -151,14 +228,22 @@
         updateEnabled();
       }
 
+      // mvsep returns "<i>No data found</i>" (and other empty markers) for many models;
+      // strip tags and drop those so we don't render a useless (or HTML-leaking) description.
+      function cleanDesc(a) {
+        const d = (a.description || "").replace(/<[^>]*>/g, "").trim();
+        return !d || /no data found/i.test(d) ? "" : d;
+      }
+
       function renderList(filter) {
         listEl.innerHTML = "";
         const q = (filter || "").toLowerCase();
         for (const a of algos) {
-          if (q && !(a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q))) continue;
+          const desc = cleanDesc(a);
+          if (q && !(a.name.toLowerCase().includes(q) || desc.toLowerCase().includes(q))) continue;
           const row = document.createElement("div");
           row.className = "row";
-          row.innerHTML = "<span>" + escapeHtml(a.name) + "</span><small>" + escapeHtml(a.description || "") + "</small>";
+          row.innerHTML = "<span>" + escapeHtml(a.name) + "</span>" + (desc ? "<small>" + escapeHtml(desc) + "</small>" : "");
           row.onclick = () => selectAlgo(a, row);
           if (selected && selected.renderId === a.renderId) row.classList.add("sel");
           listEl.appendChild(row);
@@ -209,6 +294,8 @@
         }
       };
       document.getElementById("cancel").onclick = () => post({ cancelled: true });
+      document.getElementById("credits-link").onclick = () => { document.getElementById("credits").style.display = "flex"; };
+      document.getElementById("credits-close").onclick = () => { document.getElementById("credits").style.display = "none"; };
       separateEl.onclick = () =>
         post({
           renderId: selected.renderId,

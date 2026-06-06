@@ -3,7 +3,7 @@ import { renderPickerHtml, pickerDataUrl, parsePickerResult, type PickerData, ty
 import type { ExtensionContext } from "@ableton-extensions/sdk";
 
 const PICKER_WIDTH = 420;
-const PICKER_HEIGHT = 560;
+const PICKER_HEIGHT = 500;
 
 /** Opens the model picker. Returns the user's choice, or null if they cancelled. */
 export async function openPicker(ctx: ExtensionContext<"1.0.0">, data: PickerData): Promise<PickerResult | null> {
