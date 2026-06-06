@@ -40,7 +40,28 @@ describe("parsePickerResult", () => {
     expect(parsePickerResult(JSON.stringify({ cancelled: true }))).toBeNull();
   });
 
+  it("parses a token-save result", () => {
+    const raw = JSON.stringify({
+      saveToken: true,
+      apiToken: "T",
+      renderId: 40,
+      options: { add_opt1: "2" },
+      outputFormat: 1,
+    });
+    expect(parsePickerResult(raw)).toEqual({
+      saveToken: true,
+      apiToken: "T",
+      renderId: 40,
+      options: { add_opt1: "2" },
+      outputFormat: 1,
+    });
+  });
+
   it("throws on a result missing required fields", () => {
     expect(() => parsePickerResult(JSON.stringify({ outputFormat: 1 }))).toThrow();
+  });
+
+  it("throws on a malformed token-save result", () => {
+    expect(() => parsePickerResult(JSON.stringify({ saveToken: true, apiToken: "T" }))).toThrow();
   });
 });

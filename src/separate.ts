@@ -11,7 +11,7 @@ import { loadCatalog, type CatalogCache } from "./mvsep/catalog";
 import { readConfig, writeConfig } from "./config";
 import { pollUntilDone, AbortError } from "./separate-core";
 import { openPicker } from "./picker";
-import { type PickerResult } from "./picker-template";
+import { type PickerAction, type PickerResult } from "./picker-template";
 import { showError } from "./error-dialog";
 import {
   type OriginalClipInfo,
@@ -58,7 +58,7 @@ export async function runSeparation(
     | { kind: "session"; slot: ClipSlot<"1.0.0">; clip: AudioClip<"1.0.0"> },
 ): Promise<void> {
   const { configPath, catalogPath, tempDir } = await configPaths(ctx);
-  const config = await readConfig(readFileUtf8, configPath);
+  let config = await readConfig(readFileUtf8, configPath);
 
   const algorithms = await loadCatalog({
     readCache: async () => {
@@ -69,17 +69,34 @@ export async function runSeparation(
   });
 
   // Launch health check: validate any saved token so the picker can show its status.
-  const tokenStatus = config.apiToken ? await checkToken(config.apiToken) : undefined;
+  let tokenStatus = config.apiToken ? await checkToken(config.apiToken) : undefined;
   console.info(
     `[ablevsep] launch: saved token ${config.apiToken ? "present" : "none"}; status ${JSON.stringify(tokenStatus ?? null)}`,
   );
 
-  const choice: PickerResult | null = await openPicker(ctx, {
-    algorithms,
-    config: { apiToken: config.apiToken, lastModel: config.lastModel, outputFormat: config.outputFormat },
-    tokenStatus,
-  });
-  if (!choice) return; // cancelled
+  let choice: PickerResult | null = null;
+  while (!choice) {
+    const action: PickerAction | null = await openPicker(ctx, {
+      algorithms,
+      config: { apiToken: config.apiToken, lastModel: config.lastModel, outputFormat: config.outputFormat },
+      tokenStatus,
+    });
+    if (!action) return; // cancelled
+    if ("saveToken" in action) {
+      config = {
+        apiToken: action.apiToken,
+        lastModel: action.renderId != null
+          ? { renderId: action.renderId, options: action.options as Record<string, string> }
+          : config.lastModel,
+        outputFormat: action.outputFormat,
+      };
+      await writeConfig(writeFileUtf8, configPath, config);
+      tokenStatus = await checkToken(action.apiToken);
+      console.info(`[ablevsep] token save: status ${JSON.stringify(tokenStatus)}`);
+      continue;
+    }
+    choice = action;
+  }
 
   // The token (and last-used model/format) is auto-saved on every run, regardless.
   await writeConfig(writeFileUtf8, configPath, {

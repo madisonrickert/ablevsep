@@ -22,6 +22,16 @@ export interface PickerResult {
   remember: boolean;
 }
 
+export interface PickerSaveTokenResult {
+  saveToken: true;
+  apiToken: string;
+  renderId?: number;
+  options: Partial<Record<AddOptKey, string>>;
+  outputFormat: number;
+}
+
+export type PickerAction = PickerResult | PickerSaveTokenResult;
+
 export function renderPickerHtml(shell: string, data: PickerData): string {
   // Use a function replacer so `$` sequences in the JSON aren't treated as patterns.
   return shell.replace(PICKER_DATA_MARKER, () => JSON.stringify(data).replace(/<\/script>/gi, "<\\/script>"));
@@ -31,9 +41,24 @@ export function pickerDataUrl(html: string): string {
   return "data:text/html," + encodeURIComponent(html);
 }
 
-export function parsePickerResult(raw: string): PickerResult | null {
+export function parsePickerResult(raw: string): PickerAction | null {
   const obj = JSON.parse(raw);
   if (obj && obj.cancelled === true) return null;
+  if (obj?.saveToken === true) {
+    if (typeof obj.apiToken !== "string" || typeof obj.outputFormat !== "number") {
+      throw new Error("Invalid picker token-save result");
+    }
+    if (obj.renderId != null && typeof obj.renderId !== "number") {
+      throw new Error("Invalid picker token-save result");
+    }
+    return {
+      saveToken: true,
+      apiToken: obj.apiToken,
+      renderId: obj.renderId,
+      options: obj.options ?? {},
+      outputFormat: obj.outputFormat,
+    };
+  }
   if (typeof obj?.renderId !== "number" || typeof obj?.outputFormat !== "number" || typeof obj?.apiToken !== "string") {
     throw new Error("Invalid picker result");
   }
