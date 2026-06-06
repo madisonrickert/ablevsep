@@ -7,7 +7,6 @@ export interface OriginalClipInfo {
   looping: boolean;
   loopStart: number;
   loopEnd: number;
-  color: number;
   name: string;
 }
 

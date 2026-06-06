@@ -36,7 +36,7 @@ function clipInfo(clip: AudioClip<"1.0.0">): OriginalClipInfo {
     startTime: clip.startTime, duration: clip.duration, warping: clip.warping,
     startMarker: clip.startMarker, endMarker: clip.endMarker,
     looping: clip.looping, loopStart: clip.loopStart, loopEnd: clip.loopEnd,
-    color: clip.color, name: clip.name,
+    name: clip.name,
   };
 }
 

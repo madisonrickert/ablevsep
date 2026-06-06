@@ -2,7 +2,7 @@ import type { ExtensionContext } from "@ableton-extensions/sdk";
 
 const REPO = "madisonrickert/ablevsep";
 /** Keep in sync with manifest.json / package.json. */
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "1.0.0";
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));

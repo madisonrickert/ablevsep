@@ -1,9 +1,13 @@
 # AbleVSEP
 
+[![CI](https://github.com/madisonrickert/ablevsep/actions/workflows/ci.yml/badge.svg)](https://github.com/madisonrickert/ablevsep/actions/workflows/ci.yml)
+
 Right-click an audio clip in Ableton Live → **Separate Stems with MVSEP** → pick any
 [mvsep.com](https://mvsep.com) model → the stems come back as new, group-styled tracks.
 It mirrors Live's built-in Stem Separation workflow, but exposes mvsep's full model
 catalog (126+ models) instead of one fixed algorithm.
+
+![AbleVSEP: separate any audio clip into stems with any of mvsep.com's 126+ models, right inside Ableton Live](docs/social-preview.png)
 
 > **Disclaimer.** AbleVSEP is an independent project. It is **not affiliated with,
 > endorsed by, or sponsored by Ableton AG or mvsep.com**. "Ableton" and "MVSEP" are
@@ -14,8 +18,8 @@ catalog (126+ models) instead of one fixed algorithm.
 
 - Separate an **Arrangement audio clip** or a **Session clip slot** into stems.
 - Choose **any** mvsep model from a searchable picker, with that model's variant options.
-- Stems land as new adjacent tracks named `<clip> - <stem>`, tinted the original clip's
-  color, with the original muted (press ⌘G to fold them into a group).
+- Stems land as new adjacent tracks named `<clip> - <stem>`, each in its own track color
+  for easy visual separation, with the original muted (press ⌘G to fold them into a group).
 - Cancellable progress; your API token and last-used model are remembered.
 
 ## How it works
@@ -25,10 +29,13 @@ your chosen model, polls until the job finishes, downloads the stems, and places
 into your set. All mvsep-facing logic lives in pure, unit-tested modules; the Ableton SDK
 is only touched at the orchestration edge.
 
+![A clip being separated into stems, which arrive as new color-coded tracks in the arrangement (2× speed)](docs/demo.gif)
+
 ## Install
 
-Download the latest **`.ablx`** from the Releases page (or build one, see
-[Build from source](#build-from-source)), then:
+Download the latest **`.ablx`** from the
+[**Releases** page](https://github.com/madisonrickert/ablevsep/releases/latest) (or build
+one, see [Build from source](#build-from-source)), then:
 
 1. In Ableton Live, open **Preferences → Extensions** (with Developer Mode **off**, so Live
    manages the extension).
@@ -40,10 +47,20 @@ Download the latest **`.ablx`** from the Releases page (or build one, see
 1. Right-click an **audio clip** (Arrangement) or a **Session clip slot** → **Separate Stems with MVSEP**.
 2. Search/select a model, set its options + output format, paste your mvsep API token
    (optionally "remember as default"), click **Separate**.
-3. Stems arrive as new tracks named `<clip> - <stem>`, tinted the original clip's color,
-   with the original muted.
+3. Stems arrive as new tracks named `<clip> - <stem>`, each in its own track color, with
+   the original muted.
 4. **To group them:** select the new tracks and press **⌘G** (Live's extension API can't
    create a group track programmatically).
+
+![The model picker: search 126+ mvsep models, pick variant options and output format, and paste your API token](docs/screenshot-picker.png)
+
+## Your mvsep token & privacy
+
+AbleVSEP talks only to mvsep.com. Your API token is stored locally in the extension's
+private storage folder (managed by Live's Extension Host) and is sent only to mvsep.com's
+API over HTTPS to run separations. AbleVSEP has no analytics or telemetry and makes no
+other network calls. To replace a saved token, click **Replace** in the picker; to revoke
+it entirely, regenerate it on [mvsep.com](https://mvsep.com/full_api).
 
 ## Requirements
 

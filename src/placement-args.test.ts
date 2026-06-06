@@ -4,7 +4,7 @@ import { stemNameFromFilename, stemTrackName, arrangementClipArgs, sessionClipAr
 const ORIG: OriginalClipInfo = {
   startTime: 16, duration: 8, warping: false,
   startMarker: 0, endMarker: 8, looping: false, loopStart: 0, loopEnd: 8,
-  color: 123, name: "Lead Vox",
+  name: "Lead Vox",
 };
 
 describe("names", () => {

@@ -7,7 +7,14 @@ release/
 *.ablx
 *.tsbuildinfo
 
+# Large source screen recordings; the optimized docs/demo.gif is committed instead.
+*.mov
+
 .env
 .dev/
 vendor/
 spikes/
+
+# Internal planning/process artifacts and notes — not for the public repo.
+docs/superpowers/
+PROMOTION.md

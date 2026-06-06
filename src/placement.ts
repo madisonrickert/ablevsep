@@ -19,19 +19,22 @@ export interface PlaceRequest {
 }
 
 /**
- * Creates one audio track per stem (adjacent, shared color, prefixed name).
+ * Creates one audio track per stem (adjacent, prefixed name). Each stem clip keeps
+ * the color Live assigns its new track, so the stems return in distinct, track-matched
+ * colors rather than one flat color. The SDK exposes no track-color API (only
+ * `Clip.color`), so this relies on Live coloring a freshly created clip to match its
+ * track — we simply don't override it.
  *
  * `withinTransaction` is strictly synchronous (no `await` inside) and you cannot
  * create a track and then modify it in the same transaction — so per the SDK this
- * is done as three sequential, cleanly-grouped undo steps:
+ * is done as sequential, cleanly-grouped undo steps:
  *   1. create all tracks
  *   2. name them + create their clips
- *   3. color the clips + mute the original
+ *   3. mute the original
  * A single combined undo step is not achievable with this API.
  */
 export async function placeStems(ctx: Ctx, req: PlaceRequest): Promise<void> {
   const song = ctx.application.song;
-  const color = req.orig.color;
 
   // 1. Create all tracks (grouped).
   const tracks: AudioTrack<"1.0.0">[] = await ctx.withinTransaction(() =>
@@ -39,8 +42,9 @@ export async function placeStems(ctx: Ctx, req: PlaceRequest): Promise<void> {
   );
 
   // 2. Name each track and create its clip (grouped). All calls are synchronous
-  //    within the transaction; the returned promises are awaited outside it.
-  const clips: AudioClip<"1.0.0">[] = await ctx.withinTransaction(() =>
+  //    within the transaction; the returned promises are awaited outside it. We don't
+  //    set a clip color — each clip inherits its track's color (see the header comment).
+  await ctx.withinTransaction(() =>
     Promise.all(
       req.stems.map((stem, i) => {
         const track = tracks[i]!;
@@ -54,17 +58,10 @@ export async function placeStems(ctx: Ctx, req: PlaceRequest): Promise<void> {
     ),
   );
 
-  // 3. Color the stem clips and mute the original (grouped). Each write is guarded so a
-  //    cosmetic coloring failure can't prevent the mute (or vice versa), and any failure is
-  //    logged rather than silently swallowed (this is why a warped original once went unmuted).
+  // 3. Mute the original clip (grouped, guarded). The write is guarded so a failure is
+  //    logged rather than silently swallowed — an unguarded throw here once left a
+  //    warped original unmuted.
   ctx.withinTransaction(() => {
-    for (const clip of clips) {
-      try {
-        clip.color = color;
-      } catch (e) {
-        console.warn("[ablevsep] could not color a stem clip:", e instanceof Error ? e.message : e);
-      }
-    }
     try {
       req.originalClip.muted = true;
     } catch (e) {
