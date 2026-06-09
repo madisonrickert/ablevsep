@@ -57,6 +57,9 @@
       #premium-note { margin: 9px 0 0; padding: 9px 11px; border-radius: var(--radius); font-size: 11.5px; line-height: 1.45; }
       #premium-note.warn { background: #2b2120; border: 1px solid #5a3a37; border-left: 3px solid var(--warn); color: #ecc8c3; }
       #premium-note.info { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); }
+      #limit-warn { margin: 9px 0 0; padding: 9px 11px; border-radius: var(--radius); font-size: 11.5px; line-height: 1.45;
+        background: #2b2120; border: 1px solid #5a3a37; border-left: 3px solid var(--warn); color: #ecc8c3; }
+      #estimate { margin: 8px 0 0; font-size: 11.5px; color: var(--text-dim); }
       .field { margin: 11px 0; }
       label { display: block; margin-bottom: 4px; color: var(--text-dim); font-size: 11.5px; font-weight: 500; }
       .tokenrow { display: flex; gap: 8px; align-items: center; }
@@ -110,6 +113,7 @@
     <div id="list" role="listbox" aria-label="Separation models"></div>
     <div id="options"></div>
     <div id="premium-note" style="display:none"></div>
+    <div id="limit-warn" style="display:none"></div>
     <div class="field">
       <label>Output format</label>
       <select id="format">
@@ -137,6 +141,7 @@
       </div>
       <div id="token-status" class="hint"></div>
     </div>
+    <div id="estimate" style="display:none"></div>
     <div class="actions">
       <a id="credits-link" class="credits-link">Credits</a>
       <div class="actions-right">
@@ -158,6 +163,8 @@
       const cfg = (DATA && DATA.config) || { outputFormat: 1 };
       const tokenStatus = (DATA && DATA.tokenStatus) || null;
       const PROFILE_URL = "https://mvsep.com/profile";
+      const limitWarnings = (DATA && DATA.limitWarnings) || [];
+      const sourceSeconds = DATA && DATA.sourceSeconds;
 
       let selected = null;
       const listEl = document.getElementById("list");
@@ -173,6 +180,8 @@
       const formatEl = document.getElementById("format");
       const separateEl = document.getElementById("separate");
       const premiumNoteEl = document.getElementById("premium-note");
+      const limitWarnEl = document.getElementById("limit-warn");
+      const estimateEl = document.getElementById("estimate");
 
       // Premium gating — keep in sync with picker-template.ts (premiumBlocked / isPremiumLocked /
       // isOutputFormatLocked). We lock only when we KNOW premium is unavailable (valid token, but
@@ -222,6 +231,21 @@
         } else {
           premiumNoteEl.className = "info";
           premiumNoteEl.textContent = "Premium model · uses ×" + (selected.priceCoefficient || 1) + " of your premium minutes.";
+        }
+      }
+
+      // Live credit estimate for the selected model. Credits are only spent by premium-enabled
+      // accounts (free accounts use the daily quota), so only show it then. ≈ floor(min × coeff).
+      function renderEstimate() {
+        if (selected && tokenStatus && tokenStatus.premiumEnabled === true && typeof sourceSeconds === "number" && sourceSeconds > 0) {
+          const coeff = selected.priceCoefficient || 1;
+          const credits = Math.max(1, Math.floor((sourceSeconds * coeff) / 60));
+          const mins = Math.round((sourceSeconds / 60) * 10) / 10;
+          estimateEl.style.display = "";
+          estimateEl.textContent = "≈ " + credits + " credit" + (credits === 1 ? "" : "s") + " · ~" + mins + " min" + (coeff > 1 ? " ×" + coeff : "");
+        } else {
+          estimateEl.style.display = "none";
+          estimateEl.textContent = "";
         }
       }
 
@@ -315,6 +339,7 @@
         if (rowEl) { rowEl.classList.add("sel"); rowEl.setAttribute("aria-selected", "true"); }
         renderOptions();
         renderPremiumNote();
+        renderEstimate();
         updateEnabled();
       }
 
@@ -359,7 +384,7 @@
       function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
       function updateEnabled() {
-        separateEl.disabled = !(selected && effectiveToken()) || (selected && isLocked(selected));
+        separateEl.disabled = !(selected && effectiveToken()) || (selected && isLocked(selected)) || limitWarnings.length > 0;
         saveBtn.disabled = !tokenEl.value.trim();
       }
 
@@ -416,6 +441,8 @@
       renderOptions();
       renderPremiumNote();
       applyFormatGating();
+      renderEstimate();
+      if (limitWarnings.length) { limitWarnEl.style.display = ""; limitWarnEl.textContent = limitWarnings.join(" "); }
       renderTokenUI();
       // Bring the preselected (free) model into view so it isn't hidden under premium rows up top.
       const selRow = listEl.querySelector(".row.sel");

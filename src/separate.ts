@@ -7,6 +7,8 @@ import {
   type ExtensionContext,
 } from "@ableton-extensions/sdk";
 import { checkToken, createSeparation, downloadFile, getStatus, setPremiumUsage, MvsepError, type StatusFile } from "./mvsep/client";
+import { planLimitViolations } from "./credits";
+import { wavDurationSeconds } from "./wav";
 import { loadCatalog, type CatalogCache } from "./mvsep/catalog";
 import { readConfig, writeConfig } from "./config";
 import { pollUntilDone, AbortError } from "./separate-core";
@@ -80,12 +82,46 @@ export async function runSeparation(
     `[ablevsep] launch: saved token ${config.apiToken ? "present" : "none"}; status ${JSON.stringify(tokenStatus ?? null)}`,
   );
 
+  // Measure the source audio up front so the picker can show a credit estimate and pre-flight the
+  // plan limits. Arrangement: the rendered region is (endTime-startTime) beats → seconds via tempo.
+  // Session: we upload the whole source file, so read its real duration (WAV header) + size.
+  let sourceSeconds: number | undefined;
+  let sourceBytes: number | undefined;
+  try {
+    if (target.kind === "arrangement") {
+      const tempo = ctx.application.song.tempo;
+      const beats = target.clip.endTime - target.clip.startTime;
+      if (tempo > 0 && beats > 0) sourceSeconds = (beats * 60) / tempo;
+    } else {
+      const fh = await fsp.open(target.clip.filePath, "r");
+      try {
+        const head = Buffer.alloc(65536);
+        const { bytesRead } = await fh.read(head, 0, head.length, 0);
+        const secs = wavDurationSeconds(head.subarray(0, bytesRead));
+        if (secs != null) sourceSeconds = secs;
+        sourceBytes = (await fh.stat()).size;
+      } finally {
+        await fh.close();
+      }
+    }
+  } catch (e) {
+    console.warn(`[ablevsep] could not measure source audio: ${e instanceof Error ? e.message : e}`);
+  }
+
   let choice: PickerResult | null = null;
   while (!choice) {
+    // Recompute per iteration: the applicable plan caps depend on premium, which the toggle can flip.
+    const limitWarnings = planLimitViolations({
+      seconds: sourceSeconds,
+      bytes: sourceBytes,
+      premium: tokenStatus?.premiumEnabled === true,
+    });
     const action: PickerAction | null = await openPicker(ctx, {
       algorithms,
       config: { apiToken: config.apiToken, lastModel: config.lastModel, outputFormat: config.outputFormat },
       tokenStatus,
+      sourceSeconds,
+      limitWarnings,
     });
     if (!action) return; // cancelled
     if ("saveToken" in action) {
@@ -160,6 +196,15 @@ export async function runSeparation(
       // 2. Create the job.
       await report("Uploading…", 6);
       const fileBuf = await fsp.readFile(sourcePath);
+      // Exact pre-upload check against the file we're about to send (catches an oversized
+      // arrangement render, whose size we couldn't know at picker time). Plain Error → the
+      // catch shows the message verbatim (not the MvsepError premium-mapping path).
+      const limitViolations = planLimitViolations({
+        seconds: wavDurationSeconds(fileBuf) ?? sourceSeconds,
+        bytes: fileBuf.length,
+        premium: tokenStatus?.premiumEnabled === true,
+      });
+      if (limitViolations.length) throw new Error(limitViolations.join(" "));
       const hash = await createSeparation({
         apiToken: choice.apiToken,
         fileData: fileBuf,

@@ -12,6 +12,10 @@ export interface PickerData {
   };
   /** Result of the launch-time token health check, if a token was saved. */
   tokenStatus?: { valid: boolean; premiumEnabled?: boolean; premiumMinutes?: number; message?: string };
+  /** Best estimate of the source audio length (seconds) — drives the live credit estimate. */
+  sourceSeconds?: number;
+  /** Precomputed plan-limit violations for this source + plan (over length/size); empty if OK. */
+  limitWarnings?: string[];
 }
 
 export interface TokenStatusLike {
