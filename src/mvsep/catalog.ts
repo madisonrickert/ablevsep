@@ -13,9 +13,13 @@ export interface Algorithm {
   name: string;
   description: string;
   orderId: number;
-  /** mvsep's per-job cost multiplier. >1 marks the premium-only models (the Ensembles are
-   * the only ones above 1: 2/4/6). The picker uses this to badge + gate premium models. */
+  /** mvsep's per-job credit-cost multiplier (`floor(seconds × coeff / 60)`). Currently the
+   * Ensembles are the only models above 1 (2/4/6). Drives the "×N credits" cost display only —
+   * the premium *gate* keys off `orientation`, not cost (see isPremiumModel in picker-template). */
   priceCoefficient: number;
+  /** Intended audience for this separation type: 0 = all users, 1 = registered, 2 = premium-only.
+   * The semantically-correct premium-only signal (a future premium model could be coeff 1). */
+  orientation: number;
   fields: AlgorithmField[];
 }
 
@@ -28,8 +32,8 @@ export interface CatalogCache {
 }
 
 export const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
-/** Bump on any change to the parsed Algorithm shape. v2 added priceCoefficient. */
-export const CATALOG_SCHEMA_VERSION = 2;
+/** Bump on any change to the parsed Algorithm shape. v2 added priceCoefficient; v3 added orientation. */
+export const CATALOG_SCHEMA_VERSION = 3;
 
 function safeParseOptions(s: unknown): Record<string, string> {
   if (typeof s !== "string") return {};
@@ -59,12 +63,14 @@ export function parseAlgorithms(raw: unknown[]): Algorithm[] {
           };
         });
       const pc = Number(a.price_coefficient);
+      const orient = Number(a.orientation);
       return {
         renderId: Number(a.render_id),
         name: String(a.name ?? `Model ${a.render_id}`),
         description: String(a.description ?? ""),
         orderId: Number(a.order_id ?? 0),
         priceCoefficient: Number.isFinite(pc) && pc > 0 ? pc : 1,
+        orientation: Number.isFinite(orient) ? orient : 0,
         fields,
       };
     })

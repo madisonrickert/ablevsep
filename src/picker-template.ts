@@ -22,11 +22,22 @@ export interface TokenStatusLike {
   valid?: boolean;
   premiumEnabled?: boolean;
   premiumMinutes?: number;
+  networkError?: boolean;
+}
+
+/**
+ * Separate is only permitted when a *validated* token is configured: a saved token whose
+ * launch/save health-check returned valid. A typed-but-unsaved token (replacing/first run), a
+ * server-rejected token, or a network-error status (couldn't confirm) all block Separate until
+ * the user saves a token that checks out — so we never kick off a long upload that's doomed.
+ */
+export function hasUsableToken(opts: { savedToken?: string; replacing: boolean; tokenStatus?: TokenStatusLike }): boolean {
+  return Boolean(opts.savedToken) && !opts.replacing && opts.tokenStatus?.valid === true;
 }
 
 /**
  * We KNOW the account can't spend premium credits right now: a valid token, but premium usage is
- * disabled OR no premium minutes left. Unknown/invalid token → false, so we never false-block on
+ * disabled OR no premium credits left. Unknown/invalid token → false, so we never false-block on
  * status we simply haven't fetched (the now-surfaced server error explains those cases instead).
  */
 function premiumBlocked(tokenStatus?: TokenStatusLike): boolean {
@@ -36,9 +47,15 @@ function premiumBlocked(tokenStatus?: TokenStatusLike): boolean {
   return false;
 }
 
-/** A premium model (mvsep `price_coefficient` > 1 — the Ensembles) is locked when premium is blocked. */
-export function isPremiumLocked(priceCoefficient: number, tokenStatus?: TokenStatusLike): boolean {
-  return priceCoefficient > 1 && premiumBlocked(tokenStatus);
+/** A premium-only model, per mvsep's `orientation` field: 2 = "premium users". This is the gate
+ * signal (NOT price_coefficient, which is cost) — a future premium model could be coefficient 1. */
+export function isPremiumModel(orientation: number): boolean {
+  return orientation === 2;
+}
+
+/** A premium-only model (orientation 2) is locked when the account can't spend premium right now. */
+export function isPremiumLocked(orientation: number, tokenStatus?: TokenStatusLike): boolean {
+  return isPremiumModel(orientation) && premiumBlocked(tokenStatus);
 }
 
 /** Premium-only output formats: WAV 32-bit (4) and FLAC 24-bit (5) — the premium "audio quality" tier

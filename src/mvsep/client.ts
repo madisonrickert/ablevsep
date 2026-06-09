@@ -38,9 +38,14 @@ export interface CreateParams {
 
 export interface TokenStatus {
   valid: boolean;
+  /** mvsep's premium credit balance (the API names this field `premium_minutes`). */
   premiumMinutes?: number;
   premiumEnabled?: boolean;
   message?: string;
+  /** True when validation failed because the request never reached mvsep (DNS/connectivity),
+   * as opposed to the server rejecting the token. Lets the UI say "can't reach mvsep" rather
+   * than the misleading "token invalid" on a transient network blip. */
+  networkError?: boolean;
 }
 
 export class MvsepError extends Error {
@@ -151,7 +156,7 @@ export async function checkToken(apiToken: string, fetchImpl: typeof fetch = fet
       premiumEnabled: d.premium_enabled === 1 || d.premium_enabled === true,
     };
   } catch (e) {
-    return { valid: false, message: e instanceof Error ? e.message : "network error" };
+    return { valid: false, networkError: true, message: e instanceof Error ? e.message : "network error" };
   }
 }
 

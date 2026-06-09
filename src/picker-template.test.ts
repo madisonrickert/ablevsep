@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { renderPickerHtml, pickerDataUrl, parsePickerResult, isPremiumLocked, isOutputFormatLocked, PICKER_DATA_MARKER, type PickerData } from "./picker-template";
+import { renderPickerHtml, pickerDataUrl, parsePickerResult, isPremiumModel, isPremiumLocked, isOutputFormatLocked, hasUsableToken, PICKER_DATA_MARKER, type PickerData } from "./picker-template";
 
 const data: PickerData = {
-  algorithms: [{ renderId: 40, name: "BS Roformer", description: "", orderId: 5, priceCoefficient: 1, fields: [] }],
+  algorithms: [{ renderId: 40, name: "BS Roformer", description: "", orderId: 5, priceCoefficient: 1, orientation: 0, fields: [] }],
   config: { apiToken: "TOK", outputFormat: 1 },
 };
 
@@ -76,26 +76,59 @@ describe("parsePickerResult", () => {
   });
 });
 
+describe("isPremiumModel", () => {
+  it("treats orientation 2 (premium users) as a premium-only model", () => {
+    expect(isPremiumModel(2)).toBe(true);
+  });
+
+  it("treats orientation 0 (all) and 1 (registered) as non-premium", () => {
+    expect(isPremiumModel(0)).toBe(false);
+    expect(isPremiumModel(1)).toBe(false);
+  });
+});
+
 describe("isPremiumLocked", () => {
-  it("locks a premium model when premium usage is disabled on a valid account", () => {
+  it("locks a premium model (orientation 2) when premium usage is disabled on a valid account", () => {
     expect(isPremiumLocked(2, { valid: true, premiumEnabled: false, premiumMinutes: 10000 })).toBe(true);
   });
 
   it("locks a premium model when there are no premium minutes left", () => {
-    expect(isPremiumLocked(6, { valid: true, premiumEnabled: true, premiumMinutes: 0 })).toBe(true);
+    expect(isPremiumLocked(2, { valid: true, premiumEnabled: true, premiumMinutes: 0 })).toBe(true);
   });
 
   it("allows a premium model when premium is enabled and minutes remain", () => {
-    expect(isPremiumLocked(6, { valid: true, premiumEnabled: true, premiumMinutes: 120 })).toBe(false);
+    expect(isPremiumLocked(2, { valid: true, premiumEnabled: true, premiumMinutes: 120 })).toBe(false);
   });
 
-  it("never locks a standard model (coefficient 1)", () => {
-    expect(isPremiumLocked(1, { valid: true, premiumEnabled: false, premiumMinutes: 0 })).toBe(false);
+  it("never locks a non-premium model (orientation 0 or 1), even with premium blocked", () => {
+    const blocked = { valid: true, premiumEnabled: false, premiumMinutes: 0 };
+    expect(isPremiumLocked(0, blocked)).toBe(false);
+    expect(isPremiumLocked(1, blocked)).toBe(false);
   });
 
   it("does not lock when token status is unknown or invalid (avoids false blocks)", () => {
-    expect(isPremiumLocked(4, undefined)).toBe(false);
-    expect(isPremiumLocked(4, { valid: false })).toBe(false);
+    expect(isPremiumLocked(2, undefined)).toBe(false);
+    expect(isPremiumLocked(2, { valid: false })).toBe(false);
+  });
+});
+
+describe("hasUsableToken", () => {
+  it("is true only for a saved token whose validation came back valid", () => {
+    expect(hasUsableToken({ savedToken: "T", replacing: false, tokenStatus: { valid: true } })).toBe(true);
+  });
+
+  it("is false when the saved token is rejected, or could not be verified (network error)", () => {
+    expect(hasUsableToken({ savedToken: "T", replacing: false, tokenStatus: { valid: false } })).toBe(false);
+    expect(hasUsableToken({ savedToken: "T", replacing: false, tokenStatus: { valid: false, networkError: true } })).toBe(false);
+  });
+
+  it("is false while replacing (the typed token is unsaved and unvalidated)", () => {
+    expect(hasUsableToken({ savedToken: "T", replacing: true, tokenStatus: { valid: true } })).toBe(false);
+  });
+
+  it("is false with no saved token and no validation yet (first-run entry mode)", () => {
+    expect(hasUsableToken({ savedToken: "", replacing: false, tokenStatus: undefined })).toBe(false);
+    expect(hasUsableToken({ replacing: false })).toBe(false);
   });
 });
 

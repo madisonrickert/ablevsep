@@ -39,6 +39,21 @@ describe("parseAlgorithms", () => {
     expect(algos.find((a) => a.renderId === 63)!.priceCoefficient).toBe(1); // absent → 1
     expect(algos.find((a) => a.renderId === 7)!.priceCoefficient).toBe(1); // unparseable → 1
   });
+
+  it("parses orientation (intended audience: 2 = premium users), defaulting to 0 when absent or invalid", () => {
+    const algos = parseAlgorithms([
+      { render_id: 26, name: "Ensemble", order_id: 1, is_active: 1, orientation: 2, algorithm_fields: [] },
+      { render_id: 41, name: "Registered-only", order_id: 2, is_active: 1, orientation: 1, algorithm_fields: [] },
+      { render_id: 63, name: "BS Roformer SW", order_id: 3, is_active: 1, orientation: 0, algorithm_fields: [] },
+      { render_id: 40, name: "No orientation", order_id: 4, is_active: 1, algorithm_fields: [] },
+      { render_id: 7, name: "Bad orientation", order_id: 5, is_active: 1, orientation: "nope", algorithm_fields: [] },
+    ]);
+    expect(algos.find((a) => a.renderId === 26)!.orientation).toBe(2);
+    expect(algos.find((a) => a.renderId === 41)!.orientation).toBe(1);
+    expect(algos.find((a) => a.renderId === 63)!.orientation).toBe(0);
+    expect(algos.find((a) => a.renderId === 40)!.orientation).toBe(0); // absent → 0
+    expect(algos.find((a) => a.renderId === 7)!.orientation).toBe(0); // unparseable → 0
+  });
 });
 
 describe("fetchAlgorithms", () => {

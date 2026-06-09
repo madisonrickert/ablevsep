@@ -120,21 +120,22 @@ describe("checkToken", () => {
     expect(fetchImpl.mock.calls[0][0]).toBe("https://mvsep.com/api/app/user?api_token=TOK");
   });
 
-  it("returns invalid (non-throwing) on success:false", async () => {
+  it("returns invalid (non-throwing) on success:false, and NOT flagged as a network error", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ success: false, data: { message: "Invalid API key" } }, false, 400));
-    await expect(checkToken("bad", fetchImpl as unknown as typeof fetch)).resolves.toMatchObject({
-      valid: false,
-      message: "Invalid API key",
-    });
+    const status = await checkToken("bad", fetchImpl as unknown as typeof fetch);
+    expect(status).toMatchObject({ valid: false, message: "Invalid API key" });
+    // A server rejection is a genuinely bad token, not a connectivity problem.
+    expect(status.networkError).toBeFalsy();
   });
 
-  it("returns invalid (non-throwing) on network error", async () => {
+  it("flags a thrown (connectivity) failure as networkError so the UI can distinguish it from a bad token", async () => {
     const fetchImpl = vi.fn(async () => {
-      throw new Error("net down");
+      throw new Error("fetch failed");
     });
     await expect(checkToken("x", fetchImpl as unknown as typeof fetch)).resolves.toMatchObject({
       valid: false,
-      message: "net down",
+      networkError: true,
+      message: "fetch failed",
     });
   });
 });

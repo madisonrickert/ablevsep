@@ -183,16 +183,18 @@
       const limitWarnEl = document.getElementById("limit-warn");
       const estimateEl = document.getElementById("estimate");
 
-      // Premium gating — keep in sync with picker-template.ts (premiumBlocked / isPremiumLocked /
-      // isOutputFormatLocked). We lock only when we KNOW premium is unavailable (valid token, but
-      // usage off or no minutes); unknown/invalid token → not locked.
+      // Premium gating — keep in sync with picker-template.ts (premiumBlocked / isPremiumModel /
+      // isPremiumLocked / isOutputFormatLocked). We lock only when we KNOW premium is unavailable
+      // (valid token, but usage off or no credits); unknown/invalid token → not locked.
       function premiumBlocked() {
         if (!tokenStatus || !tokenStatus.valid) return false;
         if (tokenStatus.premiumEnabled !== true) return true;
         if (typeof tokenStatus.premiumMinutes === "number" && tokenStatus.premiumMinutes <= 0) return true;
         return false;
       }
-      function isPremium(a) { return (a.priceCoefficient || 1) > 1; }
+      // A premium-only model is flagged by orientation === 2 ("premium users") — the gate signal.
+      // price_coefficient is the credit COST (×N display), not the access gate.
+      function isPremium(a) { return a.orientation === 2; }
       function isLocked(a) { return isPremium(a) && premiumBlocked(); }
       // Premium-only output formats: WAV 32-bit (4), FLAC 24-bit (5) — see PREMIUM_OUTPUT_FORMATS.
       const PREMIUM_FORMATS = ["4", "5"];
@@ -209,7 +211,7 @@
       function lockReason() {
         if (!tokenStatus || !tokenStatus.valid) return null;
         if (tokenStatus.premiumEnabled !== true) return "Premium usage is disabled on your mvsep.com account.";
-        if (typeof tokenStatus.premiumMinutes === "number" && tokenStatus.premiumMinutes <= 0) return "You have no premium minutes left.";
+        if (typeof tokenStatus.premiumMinutes === "number" && tokenStatus.premiumMinutes <= 0) return "You have no premium credits left.";
         return null;
       }
       function renderPremiumNote() {
@@ -218,7 +220,7 @@
         if (isLocked(selected)) {
           premiumNoteEl.className = "warn";
           // Offer the API toggle only when the block is "premium usage off" (toggleable). When the
-          // block is "no premium minutes", enabling won't help — point to mvsep.com to add credits.
+          // block is "no premium credits", enabling won't help — point to mvsep.com to add credits.
           const canEnable = tokenStatus && tokenStatus.valid && tokenStatus.premiumEnabled !== true;
           const cta = canEnable
             ? ' <a id="premium-note-enable" href="#">Turn on premium usage</a>, or choose a free model like BS Roformer SW.'
@@ -230,7 +232,10 @@
           if (en) en.onclick = (e) => { e.preventDefault(); postSetPremium(true); };
         } else {
           premiumNoteEl.className = "info";
-          premiumNoteEl.textContent = "Premium model · uses ×" + (selected.priceCoefficient || 1) + " of your premium minutes.";
+          const coeff = selected.priceCoefficient || 1;
+          premiumNoteEl.textContent = coeff > 1
+            ? "Premium model · uses ×" + coeff + " of your premium credits."
+            : "Premium model · uses your premium credits.";
         }
       }
 
@@ -292,13 +297,18 @@
                 '✓ token valid · <span style="color:#e0b48f">premium usage off</span> · ' +
                 '<a id="premium-toggle" href="#">turn on</a>';
             } else if (tokenStatus.premiumEnabled === true) {
-              const mins = tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " premium min" : "";
-              statusEl.innerHTML = "✓ token valid" + mins + " · premium on · " + '<a id="premium-toggle" href="#">turn off</a>';
+              const credits = tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " credits" : "";
+              statusEl.innerHTML = "✓ token valid" + credits + " · premium on · " + '<a id="premium-toggle" href="#">turn off</a>';
             } else {
-              statusEl.textContent = "✓ token valid" + (tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " premium min" : "");
+              statusEl.textContent = "✓ token valid" + (tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " credits" : "");
             }
             const tog = document.getElementById("premium-toggle");
             if (tog) tog.onclick = (e) => { e.preventDefault(); postSetPremium(tokenStatus.premiumEnabled !== true); };
+          } else if (tokenStatus.networkError) {
+            // Couldn't reach mvsep — the token may well be fine, so don't cry "invalid". Separate
+            // stays disabled (a separation needs the network too); reopening re-runs the check.
+            statusEl.style.color = "#e0b48f";
+            statusEl.textContent = "⚠ Couldn't reach mvsep.com to verify your token. Check your connection, then reopen.";
           } else {
             statusEl.style.color = "#e88";
             statusEl.textContent =
@@ -369,8 +379,11 @@
             row.title = "Premium model — select to enable premium usage";
           }
           // Badge conveys state by TEXT, not just color: a lock when gated, the ×N cost when usable.
+          // ×N is the credit cost (price_coefficient); omit it for a coeff-1 premium model.
+          const coeff = a.priceCoefficient || 1;
           const badge = premium
-            ? (locked ? ' <em class="badge">🔒 Premium</em>' : ' <em class="badge">Premium ×' + (a.priceCoefficient || 1) + "</em>")
+            ? (locked ? ' <em class="badge">🔒 Premium</em>'
+                      : ' <em class="badge">Premium' + (coeff > 1 ? " ×" + coeff : "") + "</em>")
             : "";
           row.innerHTML = "<span>" + escapeHtml(a.name) + badge + "</span>" + (desc ? "<small>" + escapeHtml(desc) + "</small>" : "");
           // Locked rows stay selectable (to reveal the explanation + inline enable), but Separate
@@ -383,8 +396,13 @@
 
       function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
+      // Mirror of picker-template.ts hasUsableToken: Separate needs a SAVED token that validated.
+      // A typed-but-unsaved token, a rejected token, or a network-error status all keep it disabled.
+      function hasUsableToken() {
+        return !!(savedToken && !replacing && tokenStatus && tokenStatus.valid === true);
+      }
       function updateEnabled() {
-        separateEl.disabled = !(selected && effectiveToken()) || (selected && isLocked(selected)) || limitWarnings.length > 0;
+        separateEl.disabled = !(selected && hasUsableToken()) || (selected && isLocked(selected)) || limitWarnings.length > 0;
         saveBtn.disabled = !tokenEl.value.trim();
       }
 
