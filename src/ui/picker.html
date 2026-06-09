@@ -41,7 +41,7 @@
          the bug that made it shrink to an invisible sliver for option-heavy models. */
       #list { flex: 1 1 0; min-height: 150px; overflow-y: auto; margin: 8px 0 0;
         border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
-        -webkit-overflow-scrolling: touch; }
+        scroll-padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
       #list::-webkit-scrollbar { width: 10px; }
       #list::-webkit-scrollbar-thumb { background: #3d3d3d; border-radius: 5px; border: 2px solid var(--panel); }
       .row { position: relative; padding: 8px 11px; cursor: pointer;
@@ -466,6 +466,11 @@
         renderEstimate();
         updateEnabled();
         updateConfigScrollHint();
+        // The freshly-rendered options grow #config, which shrinks #list from the bottom and can
+        // clip the row just selected. Once the new layout settles, scroll that row back into view
+        // (minimal motion, a no-op when it's already visible) so the selection never ends up hidden
+        // under the expanded settings.
+        if (rowEl) requestAnimationFrame(() => rowEl.scrollIntoView({ block: "nearest" }));
         liveEl.textContent = "Selected " + a.name +
           (a.fields.length ? ", " + a.fields.length + " option" + (a.fields.length === 1 ? "" : "s") : "");
       }
