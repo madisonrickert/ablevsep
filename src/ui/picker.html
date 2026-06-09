@@ -15,15 +15,15 @@
       html, body { overflow-x: hidden; }
       body {
         font: 13px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif;
-        margin: 0; padding: 14px 14px 12px; background: var(--bg); color: var(--text);
+        margin: 0; padding: 12px 14px 11px; background: var(--bg); color: var(--text);
         -webkit-font-smoothing: antialiased;
         display: flex; flex-direction: column; height: 100vh; overflow: hidden;
       }
-      header { margin: 0 0 13px; }
+      header { flex: 0 0 auto; margin: 0 0 10px; }
       .brand { display: flex; align-items: baseline; gap: 8px; }
       .brand h1 { font-size: 15px; font-weight: 650; letter-spacing: .2px; margin: 0; }
       .brand .sub { font-size: 11px; color: var(--text-faint); letter-spacing: .3px; text-transform: uppercase; }
-      .rule { height: 2px; margin-top: 9px; border-radius: 2px;
+      .rule { height: 2px; margin-top: 8px; border-radius: 2px;
         background: linear-gradient(90deg, var(--accent), rgba(74,158,255,0) 65%); opacity: .8; }
       input[type="text"], input[type="password"], select {
         width: 100%; padding: 8px 10px; background: var(--panel); color: var(--text);
@@ -32,14 +32,20 @@
       }
       input::placeholder { color: var(--text-faint); }
       input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(74,158,255,.16); }
-      #list { flex: 1 1 0; min-height: 0; overflow-y: auto; margin: 8px 0 0;
-        border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+      #search { flex: 0 0 auto; }
+      /* The model list is the load-bearing region: it absorbs leftover height and scrolls, but a
+         min-height floor (~3 rows) keeps it from ever collapsing when the config stack is tall —
+         the bug that made it shrink to an invisible sliver for option-heavy models. */
+      #list { flex: 1 1 0; min-height: 150px; overflow-y: auto; margin: 8px 0 0;
+        border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
+        -webkit-overflow-scrolling: touch; }
       #list::-webkit-scrollbar { width: 10px; }
       #list::-webkit-scrollbar-thumb { background: #3d3d3d; border-radius: 5px; border: 2px solid var(--panel); }
       .row { position: relative; padding: 8px 11px; cursor: pointer;
         border-bottom: 1px solid var(--line-soft); border-left: 2px solid transparent; transition: background .1s; }
       .row:last-child { border-bottom: 0; }
       .row:hover { background: #2a2a2a; }
+      .row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgba(74,158,255,.55); }
       .row span { display: block; font-weight: 550; }
       .row small { display: block; margin-top: 1px; color: var(--text-dim); font-size: 11.5px; line-height: 1.35; }
       .row.sel { background: var(--accent-tint); border-left-color: var(--accent); }
@@ -54,20 +60,50 @@
       .row.locked span { color: var(--text-dim); }
       .row.locked.sel span { color: #fff; }
       .row.locked .badge { background: #3a2a28; color: #f0b9b1; border-color: #6b4540; }
-      #premium-note { margin: 9px 0 0; padding: 9px 11px; border-radius: var(--radius); font-size: 11.5px; line-height: 1.45; }
+      /* Config region: everything below the list lives here in one bounded, scrollable block.
+         flex:0 1 auto + min-height:0 lets it shrink and scroll as a safety valve only after the
+         list has reached its floor — so in the common case it shows fully with no scroll. */
+      #config { flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: 9px 0 0; position: relative; }
+      #config::-webkit-scrollbar { width: 10px; }
+      #config::-webkit-scrollbar-thumb { background: #3d3d3d; border-radius: 5px; border: 2px solid var(--bg); }
+      /* When the config actually overflows, fade its bottom edge so a clipped control reads as
+         "there's more below". Applied only via .is-scrollable so the common case stays crisp. */
+      #config.is-scrollable {
+        -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent 100%);
+                mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent 100%);
+      }
+      /* "Configuring: <model> <badge>" breadcrumb — a quiet label that names the selected model
+         even when its list row has scrolled out of the short list. Stays dimmer than the list. */
+      #configuring { display: flex; align-items: baseline; gap: 6px; margin: 0 0 9px;
+        font-size: 11px; line-height: 1.3; color: var(--text-faint); letter-spacing: .2px; }
+      #configuring .cfg-label { text-transform: uppercase; letter-spacing: .4px; flex: 0 0 auto; }
+      #configuring .cfg-name { color: var(--text-dim); font-weight: 550;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+      #configuring .badge { flex: 0 0 auto; margin-left: 0; }
+      #premium-note { margin: 0 0 9px; padding: 8px 10px; border-radius: var(--radius); font-size: 11px; line-height: 1.4; }
       #premium-note.warn { background: #2b2120; border: 1px solid #5a3a37; border-left: 3px solid var(--warn); color: #ecc8c3; }
       #premium-note.info { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); }
-      #limit-warn { margin: 9px 0 0; padding: 9px 11px; border-radius: var(--radius); font-size: 11.5px; line-height: 1.45;
+      #limit-warn { margin: 0 0 9px; padding: 8px 10px; border-radius: var(--radius); font-size: 11px; line-height: 1.4;
         background: #2b2120; border: 1px solid #5a3a37; border-left: 3px solid var(--warn); color: #ecc8c3; }
       #estimate { margin: 8px 0 0; font-size: 11.5px; color: var(--text-dim); }
-      .field { margin: 11px 0; }
+      .field { margin: 9px 0; }
       label { display: block; margin-bottom: 4px; color: var(--text-dim); font-size: 11.5px; font-weight: 500; }
       .tokenrow { display: flex; gap: 8px; align-items: center; }
       .tokenrow > input { flex: 1; min-width: 0; }
-      #token-mask { flex: 1; min-width: 0; padding: 7px 10px; border-radius: var(--radius);
-        background: var(--panel); border: 1px solid var(--line); font-family: ui-monospace, monospace;
-        letter-spacing: 1px; color: var(--text-dim); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-      .actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 15px; }
+      /* Compact saved-token status: one line by default (no input row), so the heavy worst-case
+         config stack fits. The full input appears only after Replace. Softer border than an input
+         so the line reads as status, not a control — only its links are interactive. */
+      #token-compact { display: flex; align-items: center; flex-wrap: wrap; gap: 0 6px;
+        font-size: 11.5px; line-height: 1.5; padding: 6px 10px;
+        background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius); color: var(--text-dim); }
+      #token-compact .tok-check { color: var(--ok); font-weight: 600; }
+      #token-compact .tok-off { color: #e0b48f; }
+      #token-compact .tok-warn { color: #e0b48f; }
+      #token-compact .tok-err { color: #e88; }
+      #token-compact .tok-sep { color: var(--text-faint); }
+      .actions { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+        margin: 0; padding-top: 10px; border-top: 1px solid var(--line);
+        box-shadow: 0 -8px 10px -8px rgba(0,0,0,.45); }
       .actions-right { display: flex; gap: 8px; }
       button { padding: 7px 13px; border-radius: var(--radius); border: 1px solid var(--line);
         background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 12.5px;
@@ -80,13 +116,16 @@
       .btn-wrap { display: inline-flex; flex: 0 0 auto; cursor: not-allowed; }
       button.primary { background: var(--accent); border-color: var(--accent); color: #06243f; font-weight: 600; }
       button.primary:hover:not(:disabled) { background: #63acff; }
-      #replace, #save { flex: 0 0 auto; }
+      #save { flex: 0 0 auto; }
       a { color: var(--accent); text-decoration: none; }
       a:hover { text-decoration: underline; }
+      a:focus-visible, .credits-link:focus-visible { outline: 2px solid rgba(74,158,255,.55); outline-offset: 2px; border-radius: 3px; }
       .hint { color: var(--text-faint); font-size: 11px; margin-top: 5px; }
       #token-status { margin-top: 7px; font-size: 11.5px; }
       .credits-link { color: var(--text-faint); font-size: 11.5px; cursor: pointer; user-select: none; }
       .credits-link:hover { color: var(--text-dim); text-decoration: none; }
+      .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
       /* Credits overlay */
       .overlay { position: fixed; inset: 0; background: var(--bg); padding: 16px;
         display: flex; flex-direction: column; z-index: 10; }
@@ -101,7 +140,7 @@
       .credit-row > span { color: var(--text-faint); font-size: 11.5px; text-transform: uppercase; letter-spacing: .3px; }
       .credit-row > a { font-size: 13px; }
       .overlay .ack { color: var(--text-faint); font-size: 11px; line-height: 1.5; margin: 14px 0 0; }
-      .overlay .actions { margin-top: auto; justify-content: flex-end; }
+      .overlay .actions { margin-top: auto; justify-content: flex-end; border-top: 0; box-shadow: none; padding-top: 0; }
     </style>
   </head>
   <body>
@@ -111,37 +150,38 @@
     </header>
     <input id="search" type="text" placeholder="Search 126+ models…" autocomplete="off" />
     <div id="list" role="listbox" aria-label="Separation models"></div>
-    <div id="options"></div>
-    <div id="premium-note" style="display:none"></div>
-    <div id="limit-warn" style="display:none"></div>
-    <div class="field">
-      <label>Output format</label>
-      <select id="format">
-        <option value="1">WAV 16-bit</option>
-        <option value="4">WAV 32-bit</option>
-        <option value="2">FLAC 16-bit</option>
-        <option value="5">FLAC 24-bit</option>
-        <option value="0">MP3 320</option>
-        <option value="3">M4A</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>mvsep API token <span class="hint">(<a href="https://mvsep.com/full_api" target="_blank">get one</a>)</span></label>
-      <div id="token-locked" style="display:none">
-        <div class="tokenrow">
-          <span id="token-mask"></span>
-          <button id="replace" type="button">Replace</button>
-        </div>
+    <div id="config">
+      <div id="configuring" style="display:none">
+        <span class="cfg-label">Configuring</span>
+        <span class="cfg-name" id="cfg-name"></span>
       </div>
-      <div id="token-entry" style="display:none">
-        <div class="tokenrow">
-          <input id="token" type="password" placeholder="paste token" autocomplete="off" />
-          <span class="btn-wrap"><button id="save" type="button" disabled>Save</button></span>
-        </div>
+      <div id="premium-note" style="display:none"></div>
+      <div id="limit-warn" style="display:none"></div>
+      <div id="options"></div>
+      <div class="field">
+        <label>Output format</label>
+        <select id="format">
+          <option value="1">WAV 16-bit</option>
+          <option value="4">WAV 32-bit</option>
+          <option value="2">FLAC 16-bit</option>
+          <option value="5">FLAC 24-bit</option>
+          <option value="0">MP3 320</option>
+          <option value="3">M4A</option>
+        </select>
       </div>
-      <div id="token-status" class="hint"></div>
+      <div class="field">
+        <label>mvsep API token <span class="hint">(<a href="https://mvsep.com/full_api" target="_blank">get one</a>)</span></label>
+        <div id="token-compact" style="display:none"></div>
+        <div id="token-entry" style="display:none">
+          <div class="tokenrow">
+            <input id="token" type="password" placeholder="paste token" autocomplete="off" />
+            <span class="btn-wrap"><button id="save" type="button" disabled>Save</button></span>
+          </div>
+        </div>
+        <div id="token-status" class="hint"></div>
+      </div>
+      <div id="estimate" style="display:none"></div>
     </div>
-    <div id="estimate" style="display:none"></div>
     <div class="actions">
       <a id="credits-link" class="credits-link">Credits</a>
       <div class="actions-right">
@@ -149,6 +189,7 @@
         <span class="btn-wrap"><button id="separate" class="primary" disabled>Separate</button></span>
       </div>
     </div>
+    <div id="live" class="sr-only" aria-live="polite"></div>
 
     <div id="credits" class="overlay" style="display:none">
       <h2>AbleVSEP</h2>
@@ -168,20 +209,22 @@
 
       let selected = null;
       const listEl = document.getElementById("list");
+      const configEl = document.getElementById("config");
+      const configuringEl = document.getElementById("configuring");
+      const cfgNameEl = document.getElementById("cfg-name");
       const optionsEl = document.getElementById("options");
       const searchEl = document.getElementById("search");
       const tokenEl = document.getElementById("token");
-      const lockedEl = document.getElementById("token-locked");
+      const compactEl = document.getElementById("token-compact");
       const entryEl = document.getElementById("token-entry");
-      const maskEl = document.getElementById("token-mask");
       const statusEl = document.getElementById("token-status");
-      const replaceBtn = document.getElementById("replace");
       const saveBtn = document.getElementById("save");
       const formatEl = document.getElementById("format");
       const separateEl = document.getElementById("separate");
       const premiumNoteEl = document.getElementById("premium-note");
       const limitWarnEl = document.getElementById("limit-warn");
       const estimateEl = document.getElementById("estimate");
+      const liveEl = document.getElementById("live");
 
       // Premium gating — keep in sync with picker-template.ts (premiumBlocked / isPremiumModel /
       // isPremiumLocked / isOutputFormatLocked). We lock only when we KNOW premium is unavailable
@@ -196,6 +239,16 @@
       // price_coefficient is the credit COST (×N display), not the access gate.
       function isPremium(a) { return a.orientation === 2; }
       function isLocked(a) { return isPremium(a) && premiumBlocked(); }
+
+      // Single source of truth for a model's badge (so the list row and the "Configuring" line
+      // can't drift): a lock when gated, the ×N credit cost when usable, nothing when free.
+      function badgeFor(a) {
+        if (!isPremium(a)) return "";
+        if (isLocked(a)) return ' <em class="badge">🔒 Premium</em>';
+        const coeff = a.priceCoefficient || 1;
+        return ' <em class="badge">Premium' + (coeff > 1 ? " ×" + coeff : "") + "</em>";
+      }
+
       // Premium-only output formats: WAV 32-bit (4), FLAC 24-bit (5) — see PREMIUM_OUTPUT_FORMATS.
       const PREMIUM_FORMATS = ["4", "5"];
       function applyFormatGating() {
@@ -208,26 +261,31 @@
         // If a now-disabled premium format was selected, fall back to free WAV 16-bit.
         if (blocked && PREMIUM_FORMATS.indexOf(formatEl.value) !== -1) formatEl.value = "1";
       }
-      function lockReason() {
-        if (!tokenStatus || !tokenStatus.valid) return null;
-        if (tokenStatus.premiumEnabled !== true) return "Premium usage is disabled on your mvsep.com account.";
-        if (typeof tokenStatus.premiumMinutes === "number" && tokenStatus.premiumMinutes <= 0) return "You have no premium credits left.";
-        return null;
+
+      function renderConfiguring() {
+        const old = configuringEl.querySelector(".badge");
+        if (old) old.remove();
+        if (!selected) { configuringEl.style.display = "none"; return; }
+        configuringEl.style.display = "";
+        cfgNameEl.textContent = selected.name;
+        const b = badgeFor(selected);
+        if (b) cfgNameEl.insertAdjacentHTML("afterend", b);
       }
+
       function renderPremiumNote() {
         if (!selected || !isPremium(selected)) { premiumNoteEl.style.display = "none"; premiumNoteEl.innerHTML = ""; premiumNoteEl.className = ""; return; }
         premiumNoteEl.style.display = "";
         if (isLocked(selected)) {
           premiumNoteEl.className = "warn";
-          // Offer the API toggle only when the block is "premium usage off" (toggleable). When the
-          // block is "no premium credits", enabling won't help — point to mvsep.com to add credits.
+          // The model name is already shown in the "Configuring" line above, so the note doesn't
+          // restate it. Offer the in-app toggle only when the block is "premium usage off"
+          // (toggleable); when it's "no credits", enabling won't help — point to mvsep.com.
           const canEnable = tokenStatus && tokenStatus.valid && tokenStatus.premiumEnabled !== true;
-          const cta = canEnable
-            ? ' <a id="premium-note-enable" href="#">Turn on premium usage</a>, or choose a free model like BS Roformer SW.'
-            : ' Add credits at <a href="' + PROFILE_URL + '" target="_blank" rel="noreferrer">mvsep.com</a>, or choose a free model like BS Roformer SW.';
-          premiumNoteEl.innerHTML =
-            "<strong>" + escapeHtml(selected.name) + "</strong> is a premium model. " +
-            escapeHtml(lockReason() || "Premium membership is required.") + cta;
+          premiumNoteEl.innerHTML = canEnable
+            ? 'This is a premium model, but premium usage is off on your account. ' +
+              '<a id="premium-note-enable" href="#">Turn on premium usage</a>, or pick a free model like BS Roformer SW.'
+            : 'This is a premium model, but you have no premium credits left. ' +
+              'Add credits at <a href="' + PROFILE_URL + '" target="_blank" rel="noreferrer">mvsep.com</a>, or pick a free model like BS Roformer SW.';
           const en = document.getElementById("premium-note-enable");
           if (en) en.onclick = (e) => { e.preventDefault(); postSetPremium(true); };
         } else {
@@ -281,40 +339,46 @@
         }
       }
 
-      function maskToken(t) { return t.length <= 4 ? "••••" : "••••••••" + t.slice(-4); }
       function effectiveToken() { return savedToken && !replacing ? savedToken : tokenEl.value.trim(); }
 
-      function renderTokenUI() {
-        const locked = savedToken && !replacing;
-        lockedEl.style.display = locked ? "" : "none";
-        entryEl.style.display = locked ? "none" : "";
-        if (locked) maskEl.textContent = maskToken(savedToken);
-        if (locked && tokenStatus) {
-          if (tokenStatus.valid) {
-            statusEl.style.color = "#7bc47b";
-            if (tokenStatus.premiumEnabled === false) {
-              statusEl.innerHTML =
-                '✓ token valid · <span style="color:#e0b48f">premium usage off</span> · ' +
-                '<a id="premium-toggle" href="#">turn on</a>';
-            } else if (tokenStatus.premiumEnabled === true) {
-              const credits = tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " credits" : "";
-              statusEl.innerHTML = "✓ token valid" + credits + " · premium on · " + '<a id="premium-toggle" href="#">turn off</a>';
-            } else {
-              statusEl.textContent = "✓ token valid" + (tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " credits" : "");
-            }
-            const tog = document.getElementById("premium-toggle");
-            if (tog) tog.onclick = (e) => { e.preventDefault(); postSetPremium(tokenStatus.premiumEnabled !== true); };
-          } else if (tokenStatus.networkError) {
-            // Couldn't reach mvsep — the token may well be fine, so don't cry "invalid". Separate
-            // stays disabled (a separation needs the network too); reopening re-runs the check.
-            statusEl.style.color = "#e0b48f";
-            statusEl.textContent = "⚠ Couldn't reach mvsep.com to verify your token. Check your connection, then reopen.";
-          } else {
-            statusEl.style.color = "#e88";
-            statusEl.textContent =
-              "✗ saved token invalid" + (tokenStatus.message ? " (" + tokenStatus.message + ")" : "") + ". Replace it";
+      // The compact one-line token status (valid / network-error / invalid), each ending in a
+      // Replace link. The full input row (#token-entry) only shows when entering/replacing.
+      function compactTokenHtml() {
+        const replaceLink = ' <span class="tok-sep">·</span> <a id="replace" href="#">Replace</a>';
+        if (!tokenStatus) return "token saved" + replaceLink;
+        if (tokenStatus.valid) {
+          let s = '<span class="tok-check">✓</span> token valid';
+          if (tokenStatus.premiumEnabled === false) {
+            s += ' <span class="tok-sep">·</span> <span class="tok-off">premium usage off</span>' +
+                 ' <span class="tok-sep">·</span> <a id="premium-toggle" href="#">turn on</a>';
+          } else if (tokenStatus.premiumEnabled === true) {
+            if (tokenStatus.premiumMinutes != null) s += ' <span class="tok-sep">·</span> ' + tokenStatus.premiumMinutes + " credits";
+            s += ' <span class="tok-sep">·</span> premium on <span class="tok-sep">·</span> <a id="premium-toggle" href="#">turn off</a>';
+          } else if (tokenStatus.premiumMinutes != null) {
+            s += ' <span class="tok-sep">·</span> ' + tokenStatus.premiumMinutes + " credits";
           }
-        } else {
+          return s + replaceLink;
+        }
+        if (tokenStatus.networkError) {
+          return '<span class="tok-warn">⚠ Couldn\'t reach mvsep.com to verify your token.</span>' + replaceLink;
+        }
+        return '<span class="tok-err">✗ saved token invalid' +
+          (tokenStatus.message ? " (" + escapeHtml(tokenStatus.message) + ")" : "") + "</span>" + replaceLink;
+      }
+
+      function renderTokenUI() {
+        const compact = savedToken && !replacing;
+        compactEl.style.display = compact ? "" : "none";
+        entryEl.style.display = compact ? "none" : "";
+        if (compact) {
+          compactEl.innerHTML = compactTokenHtml();
+          const tog = document.getElementById("premium-toggle");
+          if (tog) tog.onclick = (e) => { e.preventDefault(); postSetPremium(tokenStatus.premiumEnabled !== true); };
+          const rep = document.getElementById("replace");
+          if (rep) rep.onclick = (e) => {
+            e.preventDefault(); replacing = true; tokenEl.value = "";
+            renderTokenUI(); updateConfigScrollHint(); tokenEl.focus();
+          };
           statusEl.textContent = "";
         }
         updateEnabled();
@@ -339,18 +403,23 @@
             wrap.appendChild(label); wrap.appendChild(sel); optionsEl.appendChild(wrap);
           }
         }
-        // The model list is flex: 1 (min-height: 0), so it absorbs all remaining height and
-        // shrinks to make room for any options — keeping the panel full with no scrolling.
+        // Options live inside #config. The list keeps its min-height floor, so heavy option stacks
+        // are absorbed by #config scrolling (not by collapsing the list) — see #config / #list CSS.
       }
 
       function selectAlgo(a, rowEl) {
         selected = a;
         for (const el of listEl.querySelectorAll(".row.sel")) { el.classList.remove("sel"); el.setAttribute("aria-selected", "false"); }
-        if (rowEl) { rowEl.classList.add("sel"); rowEl.setAttribute("aria-selected", "true"); }
+        for (const el of listEl.querySelectorAll('.row[tabindex="0"]')) el.tabIndex = -1;
+        if (rowEl) { rowEl.classList.add("sel"); rowEl.setAttribute("aria-selected", "true"); rowEl.tabIndex = 0; }
+        renderConfiguring();
         renderOptions();
         renderPremiumNote();
         renderEstimate();
         updateEnabled();
+        updateConfigScrollHint();
+        liveEl.textContent = "Selected " + a.name +
+          (a.fields.length ? ", " + a.fields.length + " option" + (a.fields.length === 1 ? "" : "s") : "");
       }
 
       // mvsep returns "<i>No data found</i>" (and other empty markers) for many models;
@@ -360,6 +429,16 @@
         return !d || /no data found/i.test(d) ? "" : d;
       }
 
+      function moveSelection(fromRow, dir) {
+        const rows = Array.from(listEl.querySelectorAll(".row"));
+        const i = rows.indexOf(fromRow);
+        const next = rows[i + dir];
+        if (!next) return;
+        next.focus();
+        next.scrollIntoView({ block: "nearest" });
+        selectAlgo(next.__algo, next);
+      }
+
       function renderList(filter) {
         listEl.innerHTML = "";
         const q = (filter || "").toLowerCase();
@@ -367,30 +446,35 @@
           const desc = cleanDesc(a);
           if (q && !(a.name.toLowerCase().includes(q) || desc.toLowerCase().includes(q))) continue;
           const locked = isLocked(a);
-          const premium = isPremium(a);
           const isSel = !!selected && selected.renderId === a.renderId;
           const row = document.createElement("div");
           row.className = "row" + (locked ? " locked" : "") + (isSel ? " sel" : "");
           row.setAttribute("role", "option");
-          row.tabIndex = 0;
+          // Roving tabindex: only the selected row is in the tab order (else Tab would cycle through
+          // all 126 rows). Arrow keys move the selection between rows. Proper listbox semantics.
+          row.tabIndex = isSel ? 0 : -1;
           row.setAttribute("aria-selected", String(isSel));
+          row.__algo = a;
           if (locked) {
             row.setAttribute("aria-disabled", "true");
             row.title = "Premium model — select to enable premium usage";
           }
-          // Badge conveys state by TEXT, not just color: a lock when gated, the ×N cost when usable.
-          // ×N is the credit cost (price_coefficient); omit it for a coeff-1 premium model.
-          const coeff = a.priceCoefficient || 1;
-          const badge = premium
-            ? (locked ? ' <em class="badge">🔒 Premium</em>'
-                      : ' <em class="badge">Premium' + (coeff > 1 ? " ×" + coeff : "") + "</em>")
-            : "";
+          const badge = badgeFor(a);
           row.innerHTML = "<span>" + escapeHtml(a.name) + badge + "</span>" + (desc ? "<small>" + escapeHtml(desc) + "</small>" : "");
           // Locked rows stay selectable (to reveal the explanation + inline enable), but Separate
           // stays disabled for them — see updateEnabled().
           row.onclick = () => selectAlgo(a, row);
-          row.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectAlgo(a, row); } };
+          row.onkeydown = (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectAlgo(a, row); }
+            else if (e.key === "ArrowDown") { e.preventDefault(); moveSelection(row, 1); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); moveSelection(row, -1); }
+          };
           listEl.appendChild(row);
+        }
+        // Keep the list keyboard-reachable even when the selected model is filtered out.
+        if (!listEl.querySelector('.row[tabindex="0"]')) {
+          const first = listEl.querySelector(".row");
+          if (first) first.tabIndex = 0;
         }
       }
 
@@ -406,15 +490,23 @@
         saveBtn.disabled = !tokenEl.value.trim();
       }
 
+      // Fade #config's bottom edge only while it actually overflows, hinting "scroll for more".
+      function updateConfigScrollHint() {
+        configEl.classList.toggle("is-scrollable", configEl.scrollHeight > configEl.clientHeight + 1);
+      }
+
       function collectOptions() {
         const out = {};
         for (const sel of optionsEl.querySelectorAll("select[data-opt-name]")) out[sel.dataset.optName] = sel.value;
         return out;
       }
 
-      searchEl.oninput = () => renderList(searchEl.value);
+      searchEl.oninput = () => {
+        renderList(searchEl.value);
+        const sel = listEl.querySelector(".row.sel");
+        if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: "nearest" });
+      };
       tokenEl.oninput = updateEnabled;
-      replaceBtn.onclick = () => { replacing = true; tokenEl.value = ""; renderTokenUI(); tokenEl.focus(); };
       saveBtn.onclick = async () => {
         const t = tokenEl.value.trim();
         if (!t) return;
@@ -456,6 +548,7 @@
           null;
       }
       renderList("");
+      renderConfiguring();
       renderOptions();
       renderPremiumNote();
       applyFormatGating();
@@ -465,6 +558,8 @@
       // Bring the preselected (free) model into view so it isn't hidden under premium rows up top.
       const selRow = listEl.querySelector(".row.sel");
       if (selRow && selRow.scrollIntoView) selRow.scrollIntoView({ block: "nearest" });
+      updateConfigScrollHint();
+      window.addEventListener("resize", updateConfigScrollHint);
     </script>
   </body>
 </html>
