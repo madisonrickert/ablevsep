@@ -9,11 +9,6 @@ catalog (126+ models) instead of one fixed algorithm.
 
 ![AbleVSEP: separate any audio clip into stems with any of mvsep.com's 126+ models, right inside Ableton Live](docs/social-preview.png)
 
-> **Disclaimer.** AbleVSEP is an independent project. It is **not affiliated with,
-> endorsed by, or sponsored by Ableton AG or mvsep.com**. "Ableton" and "MVSEP" are
-> trademarks of their respective owners; AbleVSEP merely talks to the public mvsep.com API.
-> You need your own mvsep account and API token, and separations consume your mvsep credits.
-
 ## Features
 
 - Separate an **Arrangement audio clip** or a **Session clip slot** into stems.
@@ -142,4 +137,14 @@ npm run typecheck  # type-check the extension
 
 ## License
 
-MIT. See [LICENSE](LICENSE). AbleVSEP is independent and not affiliated with Ableton AG or mvsep.com.
+MIT. See [LICENSE](LICENSE).
+
+---
+
+> **Disclaimer.** AbleVSEP is an independent, unofficial client of [mvsep.com](https://mvsep.com)'s
+> public API, not an Ableton or MVSEP product. "Ableton" and "MVSEP" are trademarks of their
+> respective owners. You bring your own mvsep account and API token, and separations consume your
+> mvsep credits.
+
+> **Disclosure.** MVSEP's creator provided complimentary premium credits to support AbleVSEP's
+> development, with no conditions attached. The project is built and maintained independently.
