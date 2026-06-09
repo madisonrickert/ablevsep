@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { parseAlgorithms, fetchAlgorithms, loadCatalog, type CatalogCache } from "./catalog";
+import { parseAlgorithms, fetchAlgorithms, loadCatalog, CATALOG_SCHEMA_VERSION, type CatalogCache } from "./catalog";
 
 const RAW = [
   {
@@ -28,6 +28,17 @@ describe("parseAlgorithms", () => {
     ]);
     expect(algos[0].fields[0].options).toEqual({});
   });
+
+  it("parses price_coefficient (premium cost multiplier), defaulting to 1 when absent or invalid", () => {
+    const algos = parseAlgorithms([
+      { render_id: 30, name: "Ensemble All-In", order_id: 1, is_active: 1, price_coefficient: 6, algorithm_fields: [] },
+      { render_id: 63, name: "BS Roformer SW", order_id: 2, is_active: 1, algorithm_fields: [] },
+      { render_id: 7, name: "Bad coef", order_id: 3, is_active: 1, price_coefficient: "nope", algorithm_fields: [] },
+    ]);
+    expect(algos.find((a) => a.renderId === 30)!.priceCoefficient).toBe(6);
+    expect(algos.find((a) => a.renderId === 63)!.priceCoefficient).toBe(1); // absent → 1
+    expect(algos.find((a) => a.renderId === 7)!.priceCoefficient).toBe(1); // unparseable → 1
+  });
 });
 
 describe("fetchAlgorithms", () => {
@@ -41,13 +52,26 @@ describe("fetchAlgorithms", () => {
 
 describe("loadCatalog", () => {
   it("returns fresh cache without fetching", async () => {
-    const cache: CatalogCache = { fetchedAt: 1000, algorithms: parseAlgorithms(RAW) };
+    const cache: CatalogCache = { version: CATALOG_SCHEMA_VERSION, fetchedAt: 1000, algorithms: parseAlgorithms(RAW) };
     const fetchImpl = vi.fn();
     const algos = await loadCatalog({
       readCache: async () => cache, writeCache: async () => {}, now: () => 1000 + 1000, fetchImpl: fetchImpl as unknown as typeof fetch,
     });
     expect(algos.length).toBe(2);
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("refetches when the cached schema version predates the current one, even within the TTL", async () => {
+    // A pre-priceCoefficient cache: fresh by time, but written before the schema gained the field.
+    const fetchImpl = vi.fn(async () => ({ ok: true, status: 200, json: async () => RAW }) as unknown as Response);
+    const writeCache = vi.fn(async () => {});
+    const algos = await loadCatalog({
+      readCache: async () => ({ fetchedAt: 1000, algorithms: [] }),
+      writeCache, now: () => 1000 + 1000, fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(writeCache).toHaveBeenCalledOnce();
+    expect(algos.length).toBe(2);
   });
 
   it("refetches + writes when cache is stale", async () => {

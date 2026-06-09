@@ -13,15 +13,23 @@ export interface Algorithm {
   name: string;
   description: string;
   orderId: number;
+  /** mvsep's per-job cost multiplier. >1 marks the premium-only models (the Ensembles are
+   * the only ones above 1: 2/4/6). The picker uses this to badge + gate premium models. */
+  priceCoefficient: number;
   fields: AlgorithmField[];
 }
 
 export interface CatalogCache {
+  /** Parsed-shape schema version. Bump when the Algorithm shape changes so old caches
+   * (which lack new fields like priceCoefficient) are discarded instead of served stale. */
+  version?: number;
   fetchedAt: number;
   algorithms: Algorithm[];
 }
 
 export const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
+/** Bump on any change to the parsed Algorithm shape. v2 added priceCoefficient. */
+export const CATALOG_SCHEMA_VERSION = 2;
 
 function safeParseOptions(s: unknown): Record<string, string> {
   if (typeof s !== "string") return {};
@@ -50,11 +58,13 @@ export function parseAlgorithms(raw: unknown[]): Algorithm[] {
             required: f.required === 1,
           };
         });
+      const pc = Number(a.price_coefficient);
       return {
         renderId: Number(a.render_id),
         name: String(a.name ?? `Model ${a.render_id}`),
         description: String(a.description ?? ""),
         orderId: Number(a.order_id ?? 0),
+        priceCoefficient: Number.isFinite(pc) && pc > 0 ? pc : 1,
         fields,
       };
     })
@@ -76,10 +86,11 @@ export async function loadCatalog(deps: {
   fetchImpl?: typeof fetch;
 }): Promise<Algorithm[]> {
   const cached = await deps.readCache();
-  if (cached && deps.now() - cached.fetchedAt < CATALOG_TTL_MS) return cached.algorithms;
+  const schemaCurrent = cached?.version === CATALOG_SCHEMA_VERSION;
+  if (cached && schemaCurrent && deps.now() - cached.fetchedAt < CATALOG_TTL_MS) return cached.algorithms;
   try {
     const algorithms = await fetchAlgorithms(deps.fetchImpl);
-    await deps.writeCache({ fetchedAt: deps.now(), algorithms });
+    await deps.writeCache({ version: CATALOG_SCHEMA_VERSION, fetchedAt: deps.now(), algorithms });
     return algorithms;
   } catch (e) {
     console.warn(

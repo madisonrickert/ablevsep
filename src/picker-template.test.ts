@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderPickerHtml, pickerDataUrl, parsePickerResult, PICKER_DATA_MARKER, type PickerData } from "./picker-template";
 
 const data: PickerData = {
-  algorithms: [{ renderId: 40, name: "BS Roformer", description: "", orderId: 5, fields: [] }],
+  algorithms: [{ renderId: 40, name: "BS Roformer", description: "", orderId: 5, priceCoefficient: 1, fields: [] }],
   config: { apiToken: "TOK", outputFormat: 1 },
 };
 
