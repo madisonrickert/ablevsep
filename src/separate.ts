@@ -6,7 +6,7 @@ import {
   ClipSlot,
   type ExtensionContext,
 } from "@ableton-extensions/sdk";
-import { checkToken, createSeparation, downloadFile, getStatus, MvsepError, type StatusFile } from "./mvsep/client";
+import { checkToken, createSeparation, downloadFile, getStatus, setPremiumUsage, MvsepError, type StatusFile } from "./mvsep/client";
 import { loadCatalog, type CatalogCache } from "./mvsep/catalog";
 import { readConfig, writeConfig } from "./config";
 import { pollUntilDone, AbortError } from "./separate-core";
@@ -99,6 +99,24 @@ export async function runSeparation(
       await writeConfig(writeFileUtf8, configPath, config);
       tokenStatus = await checkToken(action.apiToken);
       console.info(`[ablevsep] token save: status ${JSON.stringify(tokenStatus)}`);
+      continue;
+    }
+    if ("setPremium" in action) {
+      try {
+        tokenStatus = await setPremiumUsage(action.apiToken, action.setPremium);
+      } catch (e) {
+        console.warn(`[ablevsep] premium toggle failed: ${e instanceof Error ? e.message : e}`);
+        tokenStatus = await checkToken(action.apiToken);
+      }
+      config = {
+        apiToken: action.apiToken,
+        lastModel: action.renderId != null
+          ? { renderId: action.renderId, options: action.options as Record<string, string> }
+          : config.lastModel,
+        outputFormat: action.outputFormat,
+      };
+      await writeConfig(writeFileUtf8, configPath, config);
+      console.info(`[ablevsep] premium usage ${action.setPremium ? "enabled" : "disabled"}: ${JSON.stringify(tokenStatus)}`);
       continue;
     }
     choice = action;
@@ -206,6 +224,8 @@ export async function runSeparation(
     console.error("[ablevsep] separation failed:", e instanceof Error ? (e.stack ?? e.message) : e);
     const msg = e instanceof MvsepError && e.code === 401
       ? "Invalid mvsep API token. Replace it in the picker and try again."
+      : e instanceof MvsepError && /premium/i.test(e.message)
+      ? "This is a premium-only model. Enable premium usage in your mvsep.com account settings (or pick a free model like BS Roformer SW), then try again."
       : (e instanceof Error ? e.message : "The separation failed for an unknown reason.");
     await showError(ctx, msg);
   }

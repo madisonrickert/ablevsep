@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderPickerHtml, pickerDataUrl, parsePickerResult, PICKER_DATA_MARKER, type PickerData } from "./picker-template";
+import { renderPickerHtml, pickerDataUrl, parsePickerResult, isPremiumLocked, isOutputFormatLocked, PICKER_DATA_MARKER, type PickerData } from "./picker-template";
 
 const data: PickerData = {
   algorithms: [{ renderId: 40, name: "BS Roformer", description: "", orderId: 5, priceCoefficient: 1, fields: [] }],
@@ -40,6 +40,11 @@ describe("parsePickerResult", () => {
     expect(parsePickerResult(JSON.stringify({ cancelled: true }))).toBeNull();
   });
 
+  it("returns null (not throw) for an empty or non-JSON payload (external-link modal close)", () => {
+    expect(parsePickerResult("")).toBeNull();
+    expect(parsePickerResult("not json")).toBeNull();
+  });
+
   it("parses a token-save result", () => {
     const raw = JSON.stringify({
       saveToken: true,
@@ -57,11 +62,65 @@ describe("parsePickerResult", () => {
     });
   });
 
+  it("parses a set-premium result", () => {
+    const raw = JSON.stringify({ setPremium: true, apiToken: "T", renderId: 26, options: {}, outputFormat: 1 });
+    expect(parsePickerResult(raw)).toEqual({ setPremium: true, apiToken: "T", renderId: 26, options: {}, outputFormat: 1 });
+  });
+
   it("throws on a result missing required fields", () => {
     expect(() => parsePickerResult(JSON.stringify({ outputFormat: 1 }))).toThrow();
   });
 
   it("throws on a malformed token-save result", () => {
     expect(() => parsePickerResult(JSON.stringify({ saveToken: true, apiToken: "T" }))).toThrow();
+  });
+});
+
+describe("isPremiumLocked", () => {
+  it("locks a premium model when premium usage is disabled on a valid account", () => {
+    expect(isPremiumLocked(2, { valid: true, premiumEnabled: false, premiumMinutes: 10000 })).toBe(true);
+  });
+
+  it("locks a premium model when there are no premium minutes left", () => {
+    expect(isPremiumLocked(6, { valid: true, premiumEnabled: true, premiumMinutes: 0 })).toBe(true);
+  });
+
+  it("allows a premium model when premium is enabled and minutes remain", () => {
+    expect(isPremiumLocked(6, { valid: true, premiumEnabled: true, premiumMinutes: 120 })).toBe(false);
+  });
+
+  it("never locks a standard model (coefficient 1)", () => {
+    expect(isPremiumLocked(1, { valid: true, premiumEnabled: false, premiumMinutes: 0 })).toBe(false);
+  });
+
+  it("does not lock when token status is unknown or invalid (avoids false blocks)", () => {
+    expect(isPremiumLocked(4, undefined)).toBe(false);
+    expect(isPremiumLocked(4, { valid: false })).toBe(false);
+  });
+});
+
+describe("isOutputFormatLocked", () => {
+  it("locks WAV 32-bit (4) and FLAC 24-bit (5) when premium usage is off", () => {
+    const off = { valid: true, premiumEnabled: false, premiumMinutes: 10000 };
+    expect(isOutputFormatLocked(4, off)).toBe(true);
+    expect(isOutputFormatLocked(5, off)).toBe(true);
+  });
+
+  it("never locks the free-tier formats (MP3 0, WAV16 1, FLAC16 2, M4A 3)", () => {
+    const off = { valid: true, premiumEnabled: false, premiumMinutes: 0 };
+    for (const v of [0, 1, 2, 3]) expect(isOutputFormatLocked(v, off)).toBe(false);
+  });
+
+  it("allows premium formats when premium is enabled with minutes left", () => {
+    expect(isOutputFormatLocked(5, { valid: true, premiumEnabled: true, premiumMinutes: 50 })).toBe(false);
+  });
+
+  it("locks premium formats when premium is enabled but out of minutes", () => {
+    expect(isOutputFormatLocked(4, { valid: true, premiumEnabled: true, premiumMinutes: 0 })).toBe(true);
+  });
+
+  it("does not lock on unknown or invalid token (avoids false blocks)", () => {
+    expect(isOutputFormatLocked(4, undefined)).toBe(false);
+    expect(isOutputFormatLocked(4, { valid: false })).toBe(false);
   });
 });
