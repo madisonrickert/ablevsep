@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createSeparation, getStatus, downloadFile, checkToken, MvsepError } from "./client";
+import { createSeparation, getStatus, downloadFile, checkToken, setPremiumUsage, MvsepError } from "./client";
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   const text = JSON.stringify(body);
@@ -52,6 +52,64 @@ describe("createSeparation", () => {
       ),
     ).rejects.toMatchObject({ message: "bad token", code: 401 });
   });
+
+  it("surfaces the errors[] reason when the 400 body has no data.message (premium gating)", async () => {
+    // mvsep's real premium-gate 400 has the reason ONLY in errors[], with no `data` object.
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(
+        { success: false, errors: ["Seperation type is unavailable until you purchase premium membership"] },
+        false,
+        400,
+      ),
+    );
+    await expect(
+      createSeparation(
+        { apiToken: "x", fileData: new Uint8Array(), fileName: "a.wav", sepType: 26, outputFormat: 1, options: {} },
+        fetchImpl as unknown as typeof fetch,
+      ),
+    ).rejects.toMatchObject({
+      message: "Seperation type is unavailable until you purchase premium membership",
+      code: 400,
+    });
+  });
+
+  it("surfaces a non-JSON error body instead of a bare HTTP code", async () => {
+    const fetchImpl = vi.fn(async () =>
+      ({
+        ok: false,
+        status: 503,
+        json: async () => {
+          throw new Error("Unexpected token S");
+        },
+        text: async () => "Service Temporarily Unavailable",
+      }) as unknown as Response,
+    );
+    await expect(
+      createSeparation(
+        { apiToken: "x", fileData: new Uint8Array(), fileName: "a.wav", sepType: 1, outputFormat: 1, options: {} },
+        fetchImpl as unknown as typeof fetch,
+      ),
+    ).rejects.toMatchObject({ message: "Service Temporarily Unavailable", code: 503 });
+  });
+
+  it("falls back to the HTTP code for an HTML error body (no markup leaks into the message)", async () => {
+    const fetchImpl = vi.fn(async () =>
+      ({
+        ok: false,
+        status: 502,
+        json: async () => {
+          throw new Error("Unexpected token <");
+        },
+        text: async () => "<html><body>502 Bad Gateway</body></html>",
+      }) as unknown as Response,
+    );
+    await expect(
+      createSeparation(
+        { apiToken: "x", fileData: new Uint8Array(), fileName: "a.wav", sepType: 1, outputFormat: 1, options: {} },
+        fetchImpl as unknown as typeof fetch,
+      ),
+    ).rejects.toMatchObject({ message: "HTTP 502", code: 502 });
+  });
 });
 
 describe("checkToken", () => {
@@ -77,6 +135,42 @@ describe("checkToken", () => {
     await expect(checkToken("x", fetchImpl as unknown as typeof fetch)).resolves.toMatchObject({
       valid: false,
       message: "net down",
+    });
+  });
+});
+
+describe("setPremiumUsage", () => {
+  it("POSTs urlencoded to enable_premium and returns refreshed token status", async () => {
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.includes("/enable_premium")
+        ? jsonResponse({ success: true, message: "successfully enabled" })
+        : jsonResponse({ success: true, data: { premium_minutes: 10000, premium_enabled: 1 } }),
+    );
+    const status = await setPremiumUsage("TOK", true, fetchImpl as unknown as typeof fetch);
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://mvsep.com/api/app/enable_premium");
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>)["content-type"]).toBe("application/x-www-form-urlencoded");
+    expect(init.body).toBe("api_token=TOK");
+    expect(status).toMatchObject({ valid: true, premiumEnabled: true, premiumMinutes: 10000 });
+    expect(fetchImpl.mock.calls[1][0]).toBe("https://mvsep.com/api/app/user?api_token=TOK");
+  });
+
+  it("POSTs to disable_premium when disabling", async () => {
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.includes("/disable_premium")
+        ? jsonResponse({ success: true, message: "successfully disabled" })
+        : jsonResponse({ success: true, data: { premium_enabled: 0 } }),
+    );
+    await setPremiumUsage("TOK", false, fetchImpl as unknown as typeof fetch);
+    expect(fetchImpl.mock.calls[0][0]).toBe("https://mvsep.com/api/app/disable_premium");
+  });
+
+  it("throws MvsepError with the surfaced message on failure", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ success: false, errors: ["invalid token"] }, false, 400));
+    await expect(setPremiumUsage("bad", true, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({
+      message: "invalid token",
+      code: 400,
     });
   });
 });

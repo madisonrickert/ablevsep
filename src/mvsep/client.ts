@@ -50,6 +50,21 @@ export class MvsepError extends Error {
   }
 }
 
+/**
+ * Best human reason from an mvsep failure response. mvsep reports failures inconsistently:
+ * sometimes under `data.message`, sometimes ONLY in an `errors` array, and occasionally as a
+ * non-JSON body (a proxy/CDN error page). The premium-gate 400 in particular carries its reason
+ * solely in `errors[]` with no `data` object, so reading `data.message` alone collapsed it to a
+ * useless "HTTP 400". Check every place a reason can hide, then fall back to a short non-HTML
+ * body before the bare status code.
+ */
+export function mvsepErrorText(json: any, status: number, rawBody?: string): string {
+  const fromErrors = Array.isArray(json?.errors) && json.errors.length ? String(json.errors[0]) : undefined;
+  const trimmed = typeof rawBody === "string" ? rawBody.trim() : "";
+  const fromRaw = trimmed && !trimmed.startsWith("<") ? trimmed.slice(0, 300) : undefined;
+  return json?.data?.message ?? json?.message ?? fromErrors ?? fromRaw ?? `HTTP ${status}`;
+}
+
 function numOrUndef(v: unknown): number | undefined {
   const n = typeof v === "string" ? Number(v) : (v as number);
   return typeof n === "number" && Number.isFinite(n) ? n : undefined;
@@ -102,9 +117,17 @@ export async function createSeparation(p: CreateParams, fetchImpl: typeof fetch 
     // Uint8Array is a valid fetch body at runtime; cast past the TS 5.7+ BufferSource generic nit.
     body: body as RequestInit["body"],
   });
-  const json: any = await res.json().catch(() => ({}));
+  // Read the body as text first, then parse: a 400 reason can arrive as `errors[]`-only JSON
+  // or as a non-JSON page, and we must not lose either (see mvsepErrorText).
+  const raw = await res.text().catch(() => "");
+  let json: any = {};
+  try {
+    json = raw ? JSON.parse(raw) : {};
+  } catch {
+    json = {};
+  }
   if (!res.ok || !json?.success || !json?.data?.hash) {
-    throw new MvsepError(json?.data?.message ?? `HTTP ${res.status}`, res.status);
+    throw new MvsepError(mvsepErrorText(json, res.status, raw), res.status);
   }
   return String(json.data.hash);
 }
@@ -130,6 +153,35 @@ export async function checkToken(apiToken: string, fetchImpl: typeof fetch = fet
   } catch (e) {
     return { valid: false, message: e instanceof Error ? e.message : "network error" };
   }
+}
+
+/**
+ * Enables or disables premium-credit usage on the account
+ * (POST /api/app/{enable,disable}_premium). Returns a fresh TokenStatus so the caller can
+ * refresh the picker. Body is urlencoded — no FormData/Blob (absent in the Extension Host runtime).
+ */
+export async function setPremiumUsage(
+  apiToken: string,
+  enabled: boolean,
+  fetchImpl: typeof fetch = fetch,
+): Promise<TokenStatus> {
+  const url = `${BASE}/api/app/${enabled ? "enable" : "disable"}_premium`;
+  const res = await fetchImpl(url, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: `api_token=${encodeURIComponent(apiToken)}`,
+  });
+  const raw = await res.text().catch(() => "");
+  let json: any = {};
+  try {
+    json = raw ? JSON.parse(raw) : {};
+  } catch {
+    json = {};
+  }
+  if (!res.ok || !json?.success) {
+    throw new MvsepError(mvsepErrorText(json, res.status, raw), res.status);
+  }
+  return checkToken(apiToken, fetchImpl);
 }
 
 /** Resolves a possibly-relative URL against BASE. Does NOT use `new URL()`: in Live's
