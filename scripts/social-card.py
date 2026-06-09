@@ -10,7 +10,7 @@ the GitHub social-preview spec, matching the ableton-sheet-music-extension card.
 
 Usage:
   uv run scripts/social-card.py --title "AbleVSEP" \
-      --tagline "Separate any audio clip into stems with any of mvsep.com's 126+ models, right inside Live." \
+      --tagline "Separate any audio clip into stems with any of MVSEP's 100+ models, right inside Live." \
       --hero docs/social-preview-hero.png --out docs/social-preview.png
 
 Rendering uses the cached Playwright chrome-headless-shell at 2x, then downscales

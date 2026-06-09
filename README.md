@@ -1,30 +1,50 @@
 # AbleVSEP
 
 [![CI](https://github.com/madisonrickert/ablevsep/actions/workflows/ci.yml/badge.svg)](https://github.com/madisonrickert/ablevsep/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/madisonrickert/ablevsep?label=release)](https://github.com/madisonrickert/ablevsep/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/madisonrickert/ablevsep)](LICENSE)
+[![Ableton Live Suite 12.4.5+](https://img.shields.io/badge/Ableton%20Live%20Suite-12.4.5%2B-black)](https://www.ableton.com/en/live/extensions)
+[![Stars](https://img.shields.io/github/stars/madisonrickert/ablevsep?style=flat)](https://github.com/madisonrickert/ablevsep/stargazers)
 
 Right-click an audio clip in Ableton Live → **Separate Stems with MVSEP** → pick any
-[mvsep.com](https://mvsep.com) model → the stems come back as new, group-styled tracks.
-It mirrors Live's built-in Stem Separation workflow, but exposes mvsep's full model
-catalog (126+ models) instead of one fixed algorithm.
+[MVSEP](https://mvsep.com) model → the stems come back as new, group-styled tracks.
+It mirrors Live's built-in Stem Separation workflow, but exposes MVSEP's model
+catalog (100+ models) instead of one fixed algorithm.
 
-![AbleVSEP: separate any audio clip into stems with any of mvsep.com's 126+ models, right inside Ableton Live](docs/social-preview.png)
+![AbleVSEP: separate any audio clip into stems with any of MVSEP's 100+ models, right inside Ableton Live](docs/social-preview.png)
 
 ## Features
 
 - Separate an **Arrangement audio clip** or a **Session clip slot** into stems.
-- Choose **any** mvsep model from a searchable picker, with that model's variant options.
+- **Smart model picker:** search 100+ MVSEP models by name or category, sorted by
+  popularity, with community ★ ratings and each model's variant options.
+- **Premium-aware:** live credit-cost estimates, gating for premium-only models and output
+  formats, an in-app premium-usage toggle, and pre-upload checks against your plan's limits.
 - Stems land as new adjacent tracks named `<clip> - <stem>`, each in its own track color
   for easy visual separation, with the original muted (press ⌘G to fold them into a group).
 - Cancellable progress; your API token and last-used model are remembered.
 
 ## How it works
 
-The extension renders/reads the clip's audio, uploads it to mvsep's separation API with
-your chosen model, polls until the job finishes, downloads the stems, and places them back
-into your set. All mvsep-facing logic lives in pure, unit-tested modules; the Ableton SDK
-is only touched at the orchestration edge.
+When you run a separation, AbleVSEP captures the clip's audio, sends it to MVSEP for
+separation, and brings the stems back into your set. For an **Arrangement** clip it renders
+exactly what plays (pre-FX, trimmed, and warped); for a **Session** clip it reads the source
+file directly. The audio is uploaded with the model you chose, and AbleVSEP polls the job
+until it finishes, showing progress you can cancel at any point. When the stems are ready, it
+downloads them and places each on its own new track beside the original.
+
+All MVSEP-facing logic lives in pure, unit-tested modules; the Ableton SDK is touched only at
+a thin orchestration edge.
 
 ![A clip being separated into stems, which arrive as new color-coded tracks in the arrangement (2× speed)](docs/demo.gif)
+
+## Requirements
+
+To install and use AbleVSEP you need only **Ableton Live Suite 12.4.5+ with Extensions**
+(Extensions are a Suite-only feature, currently in the Live 12 beta; tested on 12.4.5b3) and
+an **MVSEP API token** ([get one](https://mvsep.com/full_api)). The `.ablx` is self-contained
+and runs inside Live's Extension Host, so you do **not** need Node.js or the SDK installed to
+use it. Separations run on your MVSEP account, and premium models spend your MVSEP credits.
 
 ## Install
 
@@ -35,47 +55,31 @@ one, see [Build from source](#build-from-source)), then:
 1. In Ableton Live, open **Preferences → Extensions** (with Developer Mode **off**, so Live
    manages the extension).
 2. Drag the `.ablx` onto that page.
-3. Right-click an audio clip → **Separate Stems with MVSEP**.
 
 ## Usage
 
 1. Right-click an **audio clip** (Arrangement) or a **Session clip slot** → **Separate Stems with MVSEP**.
-2. Search/select a model, set its options + output format, paste your mvsep API token
+2. Search/select a model, set its options + output format, paste your MVSEP API token
    (optionally "remember as default"), click **Separate**.
 3. Stems arrive as new tracks named `<clip> - <stem>`, each in its own track color, with
    the original muted.
 4. **To group them:** select the new tracks and press **⌘G** (Live's extension API can't
    create a group track programmatically).
 
-![The model picker: search 126+ mvsep models, pick variant options and output format, and paste your API token](docs/screenshot-picker.png)
+![The model picker: search 100+ MVSEP models, pick variant options and output format, and paste your API token](docs/screenshot-picker.png)
 
-## Your mvsep token & privacy
+## Your MVSEP token & privacy
 
-AbleVSEP talks only to mvsep.com. Your API token is stored locally in the extension's
-private storage folder (managed by Live's Extension Host) and is sent only to mvsep.com's
+AbleVSEP talks only to MVSEP. Your API token is stored locally in the extension's
+private storage folder (managed by Live's Extension Host) and is sent only to MVSEP's
 API over HTTPS to run separations. AbleVSEP has no analytics or telemetry and makes no
 other network calls. To replace a saved token, click **Replace** in the picker; to revoke
-it entirely, regenerate it on [mvsep.com](https://mvsep.com/full_api).
-
-## Requirements
-
-**To install and use**, you need only Ableton Live:
-
-- **Ableton Live 12 with Extensions enabled** (the Extensions feature ships in the Live 12
-  beta). The `.ablx` is self-contained and runs inside Live's Extension Host, so you do
-  **not** need Node.js or the SDK installed to use it.
-- An **mvsep API token**, see <https://mvsep.com/full_api>.
-
-**To build from source** (development only):
-
-- **Node.js ≥ 24**.
-- The **Ableton Extensions SDK (beta)**, distributed by Ableton and **not** included in
-  this repository (see below).
+it entirely, regenerate it on [MVSEP](https://mvsep.com/full_api).
 
 ## Build from source
 
-This project depends on the Ableton Extensions SDK, which is not published to npm and is
-not bundled here. Obtain it from Ableton, then:
+Building from source needs **Node.js ≥ 24** and the **Ableton Extensions SDK (beta)**, which
+is distributed by Ableton, not published to npm, and **not** bundled here. Obtain the SDK, then:
 
 1. Download and unpack the Extensions SDK (e.g. `extensions-sdk-1.0.0-beta.0`).
 2. Tell the project where it is and install:
@@ -122,29 +126,16 @@ npm test           # unit tests (Vitest) for the SDK-independent modules
 npm run typecheck  # type-check the extension
 ```
 
-## Behavior & limitations
-
-- **Arrangement clips** render exactly what the clip plays (pre-FX, trimmed, warped) and
-  place stems 1:1 at the original position. Faithful to Live's built-in stem separation.
-- **Session clips** separate the clip's **source file** (no arrangement render is
-  available). Unwarped clips get their region mirrored onto the stems; **warped Session
-  clips are best-effort**: the placed region may not match what the clip played (surfaced
-  in-app).
-- Stems are placed **unwarped** (the Live API can't author warp markers), so they won't
-  re-stretch if you change the project tempo later.
-- No true Live **group** track (the SDK has no group-creation API), hence the ⌘G hint.
-- Non-premium mvsep accounts allow **one job at a time**; v1 separates one clip per run.
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
 
 ---
 
-> **Disclaimer.** AbleVSEP is an independent, unofficial client of [mvsep.com](https://mvsep.com)'s
+> **Disclaimer.** AbleVSEP is an independent, unofficial client of [MVSEP](https://mvsep.com)'s
 > public API, not an Ableton or MVSEP product. "Ableton" and "MVSEP" are trademarks of their
-> respective owners. You bring your own mvsep account and API token, and separations consume your
-> mvsep credits.
+> respective owners. You bring your own MVSEP account and API token, and separations consume your
+> MVSEP credits.
 
 > **Disclosure.** MVSEP's creator provided complimentary premium credits to support AbleVSEP's
 > development, with no conditions attached. The project is built and maintained independently.
