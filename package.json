@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "build:dev": "npm run typecheck && tsx build.ts",
     "build": "npm run typecheck && tsx build.ts --production",
-    "start": "npm run build:dev && extensions-cli run --storage-directory \"$PWD/.dev/storage\" --temp-directory \"$PWD/.dev/temp\"",
+    "start": "npm run build:dev && tsx scripts/dev.ts",
+    "dev:clean": "tsx scripts/dev.ts --reconcile-only",
     "package": "npm run build && node scripts/package.mjs"
   },
   "dependencies": {
