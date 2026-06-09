@@ -45,6 +45,18 @@
       .row.sel { background: var(--accent-tint); border-left-color: var(--accent); }
       .row.sel span { color: #fff; }
       .row.sel small { color: #bcd6f2; }
+      .badge { display: inline-block; margin-left: 7px; padding: 1px 6px; border-radius: 999px;
+        font-size: 9.5px; font-weight: 700; letter-spacing: .4px; vertical-align: middle; text-transform: uppercase;
+        background: var(--accent-tint); color: #8fc0f5; border: 1px solid #2c4d70; }
+      /* Locked = premium-gated: still selectable (reveals the explanation + inline enable) but not
+         runnable, so keep the interactive pointer/hover. Convey state via a muted name + a lock
+         badge, NOT opacity — opacity dimming drove the text under WCAG contrast minimums. */
+      .row.locked span { color: var(--text-dim); }
+      .row.locked.sel span { color: #fff; }
+      .row.locked .badge { background: #3a2a28; color: #f0b9b1; border-color: #6b4540; }
+      #premium-note { margin: 9px 0 0; padding: 9px 11px; border-radius: var(--radius); font-size: 11.5px; line-height: 1.45; }
+      #premium-note.warn { background: #2b2120; border: 1px solid #5a3a37; border-left: 3px solid var(--warn); color: #ecc8c3; }
+      #premium-note.info { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); }
       .field { margin: 11px 0; }
       label { display: block; margin-bottom: 4px; color: var(--text-dim); font-size: 11.5px; font-weight: 500; }
       .tokenrow { display: flex; gap: 8px; align-items: center; }
@@ -58,7 +70,11 @@
         background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 12.5px;
         transition: background .12s, border-color .12s, opacity .12s; }
       button:hover:not(:disabled) { background: #383838; }
-      button:disabled { opacity: .45; cursor: default; }
+      button:disabled { opacity: .45; pointer-events: none; }
+      /* WebKit (Live's webview) won't paint a cursor on a natively-disabled button, so the
+         not-allowed cursor lives on a wrapper while the disabled button ignores pointer events.
+         Enabled buttons sit on top with pointer-events + their own pointer cursor. */
+      .btn-wrap { display: inline-flex; flex: 0 0 auto; cursor: not-allowed; }
       button.primary { background: var(--accent); border-color: var(--accent); color: #06243f; font-weight: 600; }
       button.primary:hover:not(:disabled) { background: #63acff; }
       #replace, #save { flex: 0 0 auto; }
@@ -91,8 +107,9 @@
       <div class="rule"></div>
     </header>
     <input id="search" type="text" placeholder="Search 126+ models…" autocomplete="off" />
-    <div id="list"></div>
+    <div id="list" role="listbox" aria-label="Separation models"></div>
     <div id="options"></div>
+    <div id="premium-note" style="display:none"></div>
     <div class="field">
       <label>Output format</label>
       <select id="format">
@@ -115,7 +132,7 @@
       <div id="token-entry" style="display:none">
         <div class="tokenrow">
           <input id="token" type="password" placeholder="paste token" autocomplete="off" />
-          <button id="save" type="button" disabled>Save</button>
+          <span class="btn-wrap"><button id="save" type="button" disabled>Save</button></span>
         </div>
       </div>
       <div id="token-status" class="hint"></div>
@@ -124,7 +141,7 @@
       <a id="credits-link" class="credits-link">Credits</a>
       <div class="actions-right">
         <button id="cancel">Cancel</button>
-        <button id="separate" class="primary" disabled>Separate</button>
+        <span class="btn-wrap"><button id="separate" class="primary" disabled>Separate</button></span>
       </div>
     </div>
 
@@ -140,6 +157,7 @@
       const algos = (DATA && DATA.algorithms) || [];
       const cfg = (DATA && DATA.config) || { outputFormat: 1 };
       const tokenStatus = (DATA && DATA.tokenStatus) || null;
+      const PROFILE_URL = "https://mvsep.com/profile";
 
       let selected = null;
       const listEl = document.getElementById("list");
@@ -154,6 +172,71 @@
       const saveBtn = document.getElementById("save");
       const formatEl = document.getElementById("format");
       const separateEl = document.getElementById("separate");
+      const premiumNoteEl = document.getElementById("premium-note");
+
+      // Premium gating — keep in sync with picker-template.ts (premiumBlocked / isPremiumLocked /
+      // isOutputFormatLocked). We lock only when we KNOW premium is unavailable (valid token, but
+      // usage off or no minutes); unknown/invalid token → not locked.
+      function premiumBlocked() {
+        if (!tokenStatus || !tokenStatus.valid) return false;
+        if (tokenStatus.premiumEnabled !== true) return true;
+        if (typeof tokenStatus.premiumMinutes === "number" && tokenStatus.premiumMinutes <= 0) return true;
+        return false;
+      }
+      function isPremium(a) { return (a.priceCoefficient || 1) > 1; }
+      function isLocked(a) { return isPremium(a) && premiumBlocked(); }
+      // Premium-only output formats: WAV 32-bit (4), FLAC 24-bit (5) — see PREMIUM_OUTPUT_FORMATS.
+      const PREMIUM_FORMATS = ["4", "5"];
+      function applyFormatGating() {
+        const blocked = premiumBlocked();
+        for (const opt of formatEl.options) {
+          if (PREMIUM_FORMATS.indexOf(opt.value) === -1) continue;
+          opt.disabled = blocked;
+          if (!/ \(Premium\)$/.test(opt.textContent)) opt.textContent += " (Premium)";
+        }
+        // If a now-disabled premium format was selected, fall back to free WAV 16-bit.
+        if (blocked && PREMIUM_FORMATS.indexOf(formatEl.value) !== -1) formatEl.value = "1";
+      }
+      function lockReason() {
+        if (!tokenStatus || !tokenStatus.valid) return null;
+        if (tokenStatus.premiumEnabled !== true) return "Premium usage is disabled on your mvsep.com account.";
+        if (typeof tokenStatus.premiumMinutes === "number" && tokenStatus.premiumMinutes <= 0) return "You have no premium minutes left.";
+        return null;
+      }
+      function renderPremiumNote() {
+        if (!selected || !isPremium(selected)) { premiumNoteEl.style.display = "none"; premiumNoteEl.innerHTML = ""; premiumNoteEl.className = ""; return; }
+        premiumNoteEl.style.display = "";
+        if (isLocked(selected)) {
+          premiumNoteEl.className = "warn";
+          // Offer the API toggle only when the block is "premium usage off" (toggleable). When the
+          // block is "no premium minutes", enabling won't help — point to mvsep.com to add credits.
+          const canEnable = tokenStatus && tokenStatus.valid && tokenStatus.premiumEnabled !== true;
+          const cta = canEnable
+            ? ' <a id="premium-note-enable" href="#">Turn on premium usage</a>, or choose a free model like BS Roformer SW.'
+            : ' Add credits at <a href="' + PROFILE_URL + '" target="_blank" rel="noreferrer">mvsep.com</a>, or choose a free model like BS Roformer SW.';
+          premiumNoteEl.innerHTML =
+            "<strong>" + escapeHtml(selected.name) + "</strong> is a premium model. " +
+            escapeHtml(lockReason() || "Premium membership is required.") + cta;
+          const en = document.getElementById("premium-note-enable");
+          if (en) en.onclick = (e) => { e.preventDefault(); postSetPremium(true); };
+        } else {
+          premiumNoteEl.className = "info";
+          premiumNoteEl.textContent = "Premium model · uses ×" + (selected.priceCoefficient || 1) + " of your premium minutes.";
+        }
+      }
+
+      // Toggle premium usage via the mvsep API. Mirrors the token-save round-trip: posting closes
+      // the picker; the extension flips the setting, re-checks the token, and reopens the picker.
+      function postSetPremium(enabled) {
+        if (!effectiveToken()) return;
+        post({
+          setPremium: enabled,
+          apiToken: effectiveToken(),
+          renderId: selected ? selected.renderId : undefined,
+          options: selected ? collectOptions() : {},
+          outputFormat: Number(formatEl.value),
+        });
+      }
 
       let savedToken = cfg.apiToken || "";
       let replacing = !savedToken; // no saved token → start in entry mode
@@ -180,8 +263,18 @@
         if (locked && tokenStatus) {
           if (tokenStatus.valid) {
             statusEl.style.color = "#7bc47b";
-            statusEl.textContent =
-              "✓ token valid" + (tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " premium min" : "");
+            if (tokenStatus.premiumEnabled === false) {
+              statusEl.innerHTML =
+                '✓ token valid · <span style="color:#e0b48f">premium usage off</span> · ' +
+                '<a id="premium-toggle" href="#">turn on</a>';
+            } else if (tokenStatus.premiumEnabled === true) {
+              const mins = tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " premium min" : "";
+              statusEl.innerHTML = "✓ token valid" + mins + " · premium on · " + '<a id="premium-toggle" href="#">turn off</a>';
+            } else {
+              statusEl.textContent = "✓ token valid" + (tokenStatus.premiumMinutes != null ? " · " + tokenStatus.premiumMinutes + " premium min" : "");
+            }
+            const tog = document.getElementById("premium-toggle");
+            if (tog) tog.onclick = (e) => { e.preventDefault(); postSetPremium(tokenStatus.premiumEnabled !== true); };
           } else {
             statusEl.style.color = "#e88";
             statusEl.textContent =
@@ -218,9 +311,10 @@
 
       function selectAlgo(a, rowEl) {
         selected = a;
-        for (const el of listEl.querySelectorAll(".row.sel")) el.classList.remove("sel");
-        if (rowEl) rowEl.classList.add("sel");
+        for (const el of listEl.querySelectorAll(".row.sel")) { el.classList.remove("sel"); el.setAttribute("aria-selected", "false"); }
+        if (rowEl) { rowEl.classList.add("sel"); rowEl.setAttribute("aria-selected", "true"); }
         renderOptions();
+        renderPremiumNote();
         updateEnabled();
       }
 
@@ -237,11 +331,27 @@
         for (const a of algos) {
           const desc = cleanDesc(a);
           if (q && !(a.name.toLowerCase().includes(q) || desc.toLowerCase().includes(q))) continue;
+          const locked = isLocked(a);
+          const premium = isPremium(a);
+          const isSel = !!selected && selected.renderId === a.renderId;
           const row = document.createElement("div");
-          row.className = "row";
-          row.innerHTML = "<span>" + escapeHtml(a.name) + "</span>" + (desc ? "<small>" + escapeHtml(desc) + "</small>" : "");
+          row.className = "row" + (locked ? " locked" : "") + (isSel ? " sel" : "");
+          row.setAttribute("role", "option");
+          row.tabIndex = 0;
+          row.setAttribute("aria-selected", String(isSel));
+          if (locked) {
+            row.setAttribute("aria-disabled", "true");
+            row.title = "Premium model — select to enable premium usage";
+          }
+          // Badge conveys state by TEXT, not just color: a lock when gated, the ×N cost when usable.
+          const badge = premium
+            ? (locked ? ' <em class="badge">🔒 Premium</em>' : ' <em class="badge">Premium ×' + (a.priceCoefficient || 1) + "</em>")
+            : "";
+          row.innerHTML = "<span>" + escapeHtml(a.name) + badge + "</span>" + (desc ? "<small>" + escapeHtml(desc) + "</small>" : "");
+          // Locked rows stay selectable (to reveal the explanation + inline enable), but Separate
+          // stays disabled for them — see updateEnabled().
           row.onclick = () => selectAlgo(a, row);
-          if (selected && selected.renderId === a.renderId) row.classList.add("sel");
+          row.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectAlgo(a, row); } };
           listEl.appendChild(row);
         }
       }
@@ -249,7 +359,7 @@
       function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
       function updateEnabled() {
-        separateEl.disabled = !(selected && effectiveToken());
+        separateEl.disabled = !(selected && effectiveToken()) || (selected && isLocked(selected));
         saveBtn.disabled = !tokenEl.value.trim();
       }
 
@@ -287,14 +397,29 @@
           apiToken: effectiveToken(),
         });
 
-      // Preselect last-used model if present.
+      // Preselect the last-used model if it's present and runnable; otherwise default to the
+      // free BS Roformer SW (renderId 63), then any non-premium model, then anything unlocked.
+      const FREE_DEFAULT_ID = 63;
       if (cfg.lastModel) {
         const last = algos.find((a) => a.renderId === cfg.lastModel.renderId);
-        if (last) selected = last;
+        if (last && !isLocked(last)) selected = last;
+      }
+      if (!selected) {
+        selected =
+          algos.find((a) => a.renderId === FREE_DEFAULT_ID) ||
+          algos.find((a) => !isPremium(a) && !isLocked(a)) ||
+          algos.find((a) => !isLocked(a)) ||
+          algos[0] ||
+          null;
       }
       renderList("");
       renderOptions();
+      renderPremiumNote();
+      applyFormatGating();
       renderTokenUI();
+      // Bring the preselected (free) model into view so it isn't hidden under premium rows up top.
+      const selRow = listEl.querySelector(".row.sel");
+      if (selRow && selRow.scrollIntoView) selRow.scrollIntoView({ block: "nearest" });
     </script>
   </body>
 </html>
