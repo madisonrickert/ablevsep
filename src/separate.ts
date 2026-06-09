@@ -18,7 +18,7 @@ import {
 } from "./placement-args";
 import { placeStems } from "./placement";
 import {
-  resolveDir, ensureDir, readFileUtf8, writeFileUtf8, writeBuffer,
+  resolveDir, ensureDir, resolveScratchDir, readFileUtf8, writeFileUtf8, writeBuffer,
   parentAudioTrack, clipSlotRow,
 } from "./live";
 
@@ -42,7 +42,13 @@ function clipInfo(clip: AudioClip<"1.0.0">): OriginalClipInfo {
 
 async function configPaths(ctx: Ctx) {
   const storageDir = await ensureDir(resolveDir(ctx.environment.storageDirectory, "storage"));
-  const tempDir = await ensureDir(resolveDir(ctx.environment.tempDirectory, "temp"));
+  // tempDirectory's sandbox write-grant is unreliable on the first launch after a
+  // reboot (see Ableton SDK feedback #10); fall back to a persistent work/ dir under
+  // storageDirectory, whose grant always resolves.
+  const tempDir = await resolveScratchDir([
+    resolveDir(ctx.environment.tempDirectory, "temp"),
+    path.join(storageDir, "work"),
+  ]);
   return {
     configPath: path.join(storageDir, "config.json"),
     catalogPath: path.join(storageDir, "catalog.json"),
@@ -165,6 +171,12 @@ export async function runSeparation(
         const buf = await downloadFile(files[i].downloadUrl);
         const dest = await writeBuffer(tempDir, `${Date.now()}-${i}-${files[i].filename}`, buf);
         const importedPath = await ctx.resources.importIntoProject(dest);
+        // The project now holds its own copy; drop the scratch file so a storageDir
+        // fallback doesn't accumulate stems. Best-effort — never fail the run on this,
+        // but log so a persistent cleanup failure (and slow disk leak) is visible.
+        await fsp.rm(dest, { force: true }).catch((e) =>
+          console.warn(`[ablevsep] could not remove scratch file ${dest}:`, e instanceof Error ? e.message : e),
+        );
         console.info(`[ablevsep] stem ${i + 1}/${files.length} imported: ${files[i].filename}`);
         localStems.push({ name: files[i].stemName ?? files[i].filename, importedPath });
       }
