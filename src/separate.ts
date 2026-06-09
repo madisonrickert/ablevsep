@@ -9,7 +9,7 @@ import {
 import { checkToken, createSeparation, downloadFile, getStatus, setPremiumUsage, MvsepError, type StatusFile } from "./mvsep/client";
 import { planLimitViolations } from "./credits";
 import { wavDurationSeconds } from "./wav";
-import { loadCatalog, type CatalogCache } from "./mvsep/catalog";
+import { loadCatalog, isPickableModel, type CatalogCache } from "./mvsep/catalog";
 import { readConfig, writeConfig } from "./config";
 import { pollUntilDone, AbortError } from "./separate-core";
 import { openPicker } from "./picker";
@@ -76,6 +76,11 @@ export async function runSeparation(
     now: () => Date.now(),
   });
 
+  // The picker shows only models it can actually drive: a kept group (ASR/TTS is developer-hidden),
+  // a supported upload flow (single_upload), and a placeable audio output (MIDI models are hidden).
+  // The hidden ones stay in the catalog for a future dedicated entry point.
+  const pickerAlgorithms = algorithms.filter(isPickableModel);
+
   // Launch health check: validate any saved token so the picker can show its status.
   let tokenStatus = config.apiToken ? await checkToken(config.apiToken) : undefined;
   console.info(
@@ -117,7 +122,7 @@ export async function runSeparation(
       premium: tokenStatus?.premiumEnabled === true,
     });
     const action: PickerAction | null = await openPicker(ctx, {
-      algorithms,
+      algorithms: pickerAlgorithms,
       config: { apiToken: config.apiToken, lastModel: config.lastModel, outputFormat: config.outputFormat },
       tokenStatus,
       sourceSeconds,

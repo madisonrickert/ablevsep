@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { renderPickerHtml, pickerDataUrl, parsePickerResult, isPremiumModel, isPremiumLocked, isOutputFormatLocked, hasUsableToken, PICKER_DATA_MARKER, type PickerData } from "./picker-template";
+import { renderPickerHtml, pickerDataUrl, parsePickerResult, isPremiumModel, isPremiumLocked, isOutputFormatLocked, hasUsableToken, formatUsage, ratingDisplay, RATING_MIN_TOTAL, PICKER_DATA_MARKER, type PickerData } from "./picker-template";
 
 const data: PickerData = {
-  algorithms: [{ renderId: 40, name: "BS Roformer", description: "", orderId: 5, priceCoefficient: 1, orientation: 0, fields: [] }],
+  algorithms: [{ renderId: 40, name: "BS Roformer", description: "", orderId: 5, priceCoefficient: 1, orientation: 0, groupId: 1, groupName: "Vocals / Instrumental", usage: 1200, ratingAverage: 4.5, ratingTotal: 60, audioWidget: "single_upload", fields: [] }],
   config: { apiToken: "TOK", outputFormat: 1 },
 };
 
@@ -129,6 +129,49 @@ describe("hasUsableToken", () => {
   it("is false with no saved token and no validation yet (first-run entry mode)", () => {
     expect(hasUsableToken({ savedToken: "", replacing: false, tokenStatus: undefined })).toBe(false);
     expect(hasUsableToken({ replacing: false })).toBe(false);
+  });
+});
+
+describe("formatUsage", () => {
+  it("formats < 1000 as a raw integer", () => {
+    expect(formatUsage(30)).toBe("30");
+    expect(formatUsage(940)).toBe("940");
+  });
+
+  it("formats 1k–99.9k with a stripped one-decimal k", () => {
+    expect(formatUsage(1405)).toBe("1.4k");
+    expect(formatUsage(9682)).toBe("9.7k");
+    expect(formatUsage(56785)).toBe("56.8k");
+    expect(formatUsage(2000)).toBe("2k"); // trailing .0 stripped
+  });
+
+  it("formats 100k+ as an integer k", () => {
+    expect(formatUsage(100000)).toBe("100k");
+    expect(formatUsage(173411)).toBe("173k");
+  });
+
+  it("formats millions with a stripped one-decimal M", () => {
+    expect(formatUsage(1234567)).toBe("1.2M");
+    expect(formatUsage(2000000)).toBe("2M");
+  });
+
+  it("returns an empty string for zero/negative/invalid usage", () => {
+    expect(formatUsage(0)).toBe("");
+    expect(formatUsage(-5)).toBe("");
+    expect(formatUsage(NaN)).toBe("");
+  });
+});
+
+describe("ratingDisplay", () => {
+  it("shows a one-decimal average once it clears the confidence threshold", () => {
+    expect(ratingDisplay(4.76, 870)).toBe("4.8");
+    expect(ratingDisplay(4.42, RATING_MIN_TOTAL)).toBe("4.4");
+  });
+
+  it("hides below the threshold or when unrated (a 5.0 off a few votes is noise)", () => {
+    expect(ratingDisplay(5.0, 22)).toBeNull();
+    expect(ratingDisplay(4.9, RATING_MIN_TOTAL - 1)).toBeNull();
+    expect(ratingDisplay(null, 0)).toBeNull();
   });
 });
 

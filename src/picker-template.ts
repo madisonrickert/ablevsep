@@ -58,6 +58,29 @@ export function isPremiumLocked(orientation: number, tokenStatus?: TokenStatusLi
   return isPremiumModel(orientation) && premiumBlocked(tokenStatus);
 }
 
+/** Compact, human usage count for the row: "940", "1.4k", "56.8k", "173k", "1.2M". One decimal
+ * below 100k (trailing .0 stripped), integer at/above 100k; empty string for zero/invalid. */
+export function formatUsage(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "";
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1e3) {
+    const k = n / 1e3;
+    return (k >= 100 ? String(Math.round(k)) : k.toFixed(1).replace(/\.0$/, "")) + "k";
+  }
+  return String(Math.round(n));
+}
+
+/** Minimum vote count before a rating is trustworthy enough to display. Below this, a high
+ * average is noise (a 5.0 off a few votes), so we show nothing rather than mislead. */
+export const RATING_MIN_TOTAL = 50;
+
+/** The one-decimal rating string to show ("4.8"), or null when unrated / below the confidence
+ * threshold. Keeps the raw average elsewhere for a future weighted sort. */
+export function ratingDisplay(average: number | null, total: number): string | null {
+  if (average == null || total < RATING_MIN_TOTAL) return null;
+  return average.toFixed(1);
+}
+
 /** Premium-only output formats: WAV 32-bit (4) and FLAC 24-bit (5) — the premium "audio quality" tier
  * per mvsep.com/plans. The API's output_format enum carries no flag for this, so we encode it here. */
 export const PREMIUM_OUTPUT_FORMATS = [4, 5];

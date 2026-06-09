@@ -9,7 +9,7 @@
         --line: #383838; --line-soft: #2f2f2f;
         --text: #e7e7e7; --text-dim: #9c9c9c; --text-faint: #6e6e6e;
         --accent: #4a9eff; --accent-tint: #15314e;
-        --ok: #62c281; --warn: #e8746b; --radius: 6px;
+        --ok: #62c281; --warn: #e8746b; --star: #d9a441; --radius: 6px;
       }
       * { box-sizing: border-box; }
       html, body { overflow-x: hidden; }
@@ -46,19 +46,39 @@
       .row:last-child { border-bottom: 0; }
       .row:hover { background: #2a2a2a; }
       .row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgba(74,158,255,.55); }
-      .row span { display: block; font-weight: 550; }
-      .row small { display: block; margin-top: 1px; color: var(--text-dim); font-size: 11.5px; line-height: 1.35; }
       .row.sel { background: var(--accent-tint); border-left-color: var(--accent); }
-      .row.sel span { color: #fff; }
-      .row.sel small { color: #bcd6f2; }
+      /* Each row line is a flex pair: a left segment (name / description) that ellipsizes, and
+         right-pinned metrics that always keep their space. The name yields; metrics never wrap. */
+      .row .line-name { display: flex; align-items: baseline; gap: 7px; }
+      .row .line-desc { display: flex; align-items: baseline; gap: 8px; margin-top: 1px; }
+      /* Name/description wrap to their FULL text (never truncated). They share their line with
+         right-pinned metrics; baseline alignment keeps the metric at the first line's top-right
+         while the text flows onto as many lines as it needs. */
+      .row-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere;
+        font-weight: 550; color: var(--text); }
+      .row-desc { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere;
+        color: var(--text-dim); font-size: 11.5px; line-height: 1.35; }
+      /* Tertiary metrics: faint, never louder than the name. The group tag is quietest (weight 400). */
+      .row-group { flex: 0 0 auto; color: var(--text-faint); font-size: 11px; font-weight: 400; letter-spacing: .1px; }
+      .row-usage { flex: 0 0 auto; color: var(--text-faint); font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+      .row-rating { flex: 0 0 auto; color: var(--text-dim); font-size: 11px; font-weight: 500;
+        font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .row-rating .star { color: var(--star); }
+      .row.sel .row-name { color: #fff; }
+      .row.sel .row-desc { color: #bcd6f2; }
+      .row.sel .row-usage { color: #9fc4ea; }
+      .row.sel .row-group { color: #84a9cf; }
+      .row.sel .row-rating { color: #cfe0f2; }
+      .row.sel .row-rating .star { color: #f0c75a; }
       .badge { display: inline-block; margin-left: 7px; padding: 1px 6px; border-radius: 999px;
         font-size: 9.5px; font-weight: 700; letter-spacing: .4px; vertical-align: middle; text-transform: uppercase;
         background: var(--accent-tint); color: #8fc0f5; border: 1px solid #2c4d70; }
+      .row .line-name .badge { margin-left: 0; } /* flex gap already spaces it; avoid doubling */
       /* Locked = premium-gated: still selectable (reveals the explanation + inline enable) but not
          runnable, so keep the interactive pointer/hover. Convey state via a muted name + a lock
          badge, NOT opacity — opacity dimming drove the text under WCAG contrast minimums. */
-      .row.locked span { color: var(--text-dim); }
-      .row.locked.sel span { color: #fff; }
+      .row.locked .row-name { color: var(--text-dim); }
+      .row.locked.sel .row-name { color: #fff; }
       .row.locked .badge { background: #3a2a28; color: #f0b9b1; border-color: #6b4540; }
       /* Config region: everything below the list lives here in one bounded, scrollable block.
          flex:0 1 auto + min-height:0 lets it shrink and scroll as a safety valve only after the
@@ -247,6 +267,25 @@
         if (isLocked(a)) return ' <em class="badge">🔒 Premium</em>';
         const coeff = a.priceCoefficient || 1;
         return ' <em class="badge">Premium' + (coeff > 1 ? " ×" + coeff : "") + "</em>";
+      }
+
+      // Mirrors of picker-template.ts formatUsage / ratingDisplay (RATING_MIN_TOTAL) + a spoken
+      // form for the row's aria-label (the visible metrics are aria-hidden, so they aren't read twice).
+      function formatUsage(n) {
+        if (!(n > 0)) return "";
+        if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+        if (n >= 1e3) { const k = n / 1e3; return (k >= 100 ? String(Math.round(k)) : k.toFixed(1).replace(/\.0$/, "")) + "k"; }
+        return String(Math.round(n));
+      }
+      const RATING_MIN_TOTAL = 50;
+      function ratingDisplay(average, total) {
+        if (average == null || total < RATING_MIN_TOTAL) return null;
+        return average.toFixed(1);
+      }
+      function usageSpoken(n) {
+        if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, "") + " million uses";
+        if (n >= 1e3) return Math.round(n / 1e3) + " thousand uses";
+        return n + (n === 1 ? " use" : " uses");
       }
 
       // Premium-only output formats: WAV 32-bit (4), FLAC 24-bit (5) — see PREMIUM_OUTPUT_FORMATS.
@@ -444,7 +483,8 @@
         const q = (filter || "").toLowerCase();
         for (const a of algos) {
           const desc = cleanDesc(a);
-          if (q && !(a.name.toLowerCase().includes(q) || desc.toLowerCase().includes(q))) continue;
+          const group = a.groupName || "";
+          if (q && !(a.name.toLowerCase().includes(q) || desc.toLowerCase().includes(q) || group.toLowerCase().includes(q))) continue;
           const locked = isLocked(a);
           const isSel = !!selected && selected.renderId === a.renderId;
           const row = document.createElement("div");
@@ -459,8 +499,24 @@
             row.setAttribute("aria-disabled", "true");
             row.title = "Premium model — select to enable premium usage";
           }
+          // Name line: name (ellipsizes) + premium badge + group tag + usage. Desc line:
+          // description (ellipsizes) + rating (only when it clears the confidence threshold).
           const badge = badgeFor(a);
-          row.innerHTML = "<span>" + escapeHtml(a.name) + badge + "</span>" + (desc ? "<small>" + escapeHtml(desc) + "</small>" : "");
+          const groupTag = group ? '<span class="row-group" aria-hidden="true">· ' + escapeHtml(group) + "</span>" : "";
+          const usageStr = formatUsage(a.usage);
+          const usageTag = usageStr ? '<span class="row-usage" aria-hidden="true">' + usageStr + "</span>" : "";
+          const ratingStr = ratingDisplay(a.ratingAverage, a.ratingTotal);
+          const ratingTag = ratingStr ? '<span class="row-rating" aria-hidden="true"><span class="star">★</span> ' + ratingStr + "</span>" : "";
+          row.innerHTML =
+            '<div class="line-name"><span class="row-name">' + escapeHtml(a.name) + "</span>" + badge + groupTag + usageTag + "</div>" +
+            ((desc || ratingTag) ? '<div class="line-desc"><span class="row-desc">' + (desc ? escapeHtml(desc) : "") + "</span>" + ratingTag + "</div>" : "");
+          // One clean spoken label; the visible metric spans are aria-hidden so they aren't read twice.
+          const aria = [a.name];
+          if (group) aria.push(group);
+          if (usageStr) aria.push(usageSpoken(a.usage));
+          if (ratingStr) aria.push("rated " + ratingStr + " out of 5");
+          if (locked) aria.push("premium, locked"); else if (isPremium(a)) aria.push("premium");
+          row.setAttribute("aria-label", aria.join(", "));
           // Locked rows stay selectable (to reveal the explanation + inline enable), but Separate
           // stays disabled for them — see updateEnabled().
           row.onclick = () => selectAlgo(a, row);
