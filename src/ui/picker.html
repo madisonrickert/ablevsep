@@ -10,6 +10,9 @@
         --text: #e7e7e7; --text-dim: #9c9c9c; --text-faint: #6e6e6e;
         --accent: #4a9eff; --accent-tint: #15314e;
         --ok: #62c281; --warn: #e8746b; --star: #d9a441; --radius: 6px;
+        /* Type scale + spacing ladder (used by the credits overlay). */
+        --fs-title: 19px; --fs-body: 13px; --fs-meta: 12px; --fs-eyebrow: 10.5px;
+        --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
       }
       * { box-sizing: border-box; }
       html, body { overflow-x: hidden; }
@@ -121,7 +124,7 @@
       #token-compact .tok-warn { color: #e0b48f; }
       #token-compact .tok-err { color: #e88; }
       #token-compact .tok-sep { color: var(--text-faint); }
-      .actions { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      .actions { flex: 0 0 auto; display: flex; justify-content: flex-end; align-items: center; gap: 8px;
         margin: 0; padding-top: 10px; border-top: 1px solid var(--line);
         box-shadow: 0 -8px 10px -8px rgba(0,0,0,.45); }
       .actions-right { display: flex; gap: 8px; }
@@ -139,33 +142,39 @@
       #save { flex: 0 0 auto; }
       a { color: var(--accent); text-decoration: none; }
       a:hover { text-decoration: underline; }
-      a:focus-visible, .credits-link:focus-visible { outline: 2px solid rgba(74,158,255,.55); outline-offset: 2px; border-radius: 3px; }
+      a:focus-visible { outline: 2px solid rgba(74,158,255,.55); outline-offset: 2px; border-radius: 3px; }
       .hint { color: var(--text-faint); font-size: 11px; margin-top: 5px; }
       #token-status { margin-top: 7px; font-size: 11.5px; }
-      .credits-link { color: var(--text-faint); font-size: 11.5px; cursor: pointer; user-select: none; }
-      .credits-link:hover { color: var(--text-dim); text-decoration: none; }
+      /* Info button (ⓘ) in the header — opens the credits overlay (replaces the old text link). */
+      #info-btn { margin-left: auto; align-self: center; flex: 0 0 auto;
+        width: 22px; height: 22px; padding: 0; border-radius: 50%;
+        background: transparent; border: 1px solid var(--line); color: var(--text-dim);
+        font-size: 13px; line-height: 1; cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
+      #info-btn:hover { color: var(--text); border-color: var(--text-faint); background: var(--panel); }
+      #info-btn:focus-visible { outline: 2px solid rgba(74,158,255,.55); outline-offset: 2px; }
       .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
         clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-      /* Credits overlay */
-      .overlay { position: fixed; inset: 0; background: var(--bg); padding: 16px;
+      /* Credits overlay — typography from the shared type scale + spacing ladder. */
+      .overlay { position: fixed; inset: 0; background: var(--bg); padding: 18px;
         display: flex; flex-direction: column; z-index: 10; }
-      .overlay h2 { font-size: 15px; font-weight: 650; margin: 2px 0 0; }
-      .overlay .tagline { color: var(--text-dim); font-size: 12px; margin: 8px 0 12px; line-height: 1.5; }
-      .overlay .bio { color: var(--text); font-size: 12.5px; line-height: 1.6; margin: 0 0 14px; }
-      .credit-block { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
-        padding: 4px 12px; }
-      .credit-row { display: flex; justify-content: space-between; align-items: baseline;
-        padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
-      .credit-row:last-child { border-bottom: 0; }
-      .credit-row > span { color: var(--text-faint); font-size: 11.5px; text-transform: uppercase; letter-spacing: .3px; }
-      .credit-row > a { font-size: 13px; }
-      .overlay .ack { color: var(--text-faint); font-size: 11px; line-height: 1.5; margin: 14px 0 0; }
-      .overlay .actions { margin-top: auto; justify-content: flex-end; border-top: 0; box-shadow: none; padding-top: 0; }
+      .overlay h2 { font-size: var(--fs-title); font-weight: 700; line-height: 1.15;
+        letter-spacing: -.01em; color: #fff; margin: 0 0 var(--sp-1); }
+      .overlay .tagline { color: var(--text-dim); font-size: var(--fs-meta); line-height: 1.5;
+        margin: 0 0 var(--sp-5); max-width: 54ch; }
+      .overlay .bio { color: var(--text); font-size: var(--fs-body); line-height: 1.65;
+        margin: 0 0 var(--sp-3); max-width: 58ch; }
+      .overlay .bio .lead { display: block; font-size: var(--fs-eyebrow); font-weight: 700;
+        letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 var(--sp-1); }
+      .overlay .credit-note { color: var(--text-faint); font-size: var(--fs-meta); line-height: 1.5;
+        margin: 0 0 var(--sp-4); max-width: 58ch; }
+      .overlay-actions { margin-top: auto; padding-top: var(--sp-4);
+        display: flex; gap: var(--sp-2); justify-content: flex-end; }
     </style>
   </head>
   <body>
     <header>
-      <div class="brand"><h1>MVSEP</h1><span class="sub">stem separation</span></div>
+      <div class="brand"><h1>MVSEP</h1><span class="sub">stem separation</span>
+        <button id="info-btn" type="button" title="Credits" aria-label="Credits">ⓘ</button></div>
       <div class="rule"></div>
     </header>
     <input id="search" type="text" placeholder="Search 100+ models…" autocomplete="off" />
@@ -203,7 +212,6 @@
       <div id="estimate" style="display:none"></div>
     </div>
     <div class="actions">
-      <a id="credits-link" class="credits-link">Credits</a>
       <div class="actions-right">
         <button id="cancel">Cancel</button>
         <span class="btn-wrap"><button id="separate" class="primary" disabled>Separate</button></span>
@@ -213,9 +221,10 @@
 
     <div id="credits" class="overlay" style="display:none">
       <h2>AbleVSEP</h2>
-      <p class="tagline">An unofficial Ableton Live client for <a href="https://mvsep.com" target="_blank" rel="noreferrer">MVSEP</a> stem separation.</p>
-      <p class="bio"><strong>About the Creator:</strong> Hope you're enjoying using AbleVSEP! I'm <a href="https://madisonrickert.com" target="_blank" rel="noreferrer">Madison Rickert</a>. I've been both a software engineer and a musician for over 20 years, and it's my joy building tools to empower artists. I create and perform my own music as <a href="https://toefood.music" target="_blank" rel="noreferrer">Toefood</a>.</p>
-      <div class="actions"><button id="credits-close">Back</button></div>
+      <p class="tagline">Separate any audio clip into stems, right inside Ableton Live.</p>
+      <p class="bio"><span class="lead">About the Creator</span>Hope you're enjoying AbleVSEP! I'm <a href="https://madisonrickert.com" target="_blank" rel="noreferrer">Madison Rickert</a>. I've been both a software engineer and a musician for over 20 years, and it's my joy building tools to empower artists. I create and perform my own music as <a href="https://toefood.music" target="_blank" rel="noreferrer">Toefood</a>.</p>
+      <p class="credit-note">Stem separation powered by <a href="https://mvsep.com" target="_blank" rel="noreferrer">MVSEP</a>. An unofficial client, not affiliated with the service.</p>
+      <div class="overlay-actions"><button id="credits-close">Back</button></div>
     </div>
 
     <script>
@@ -578,8 +587,18 @@
         });
       };
       document.getElementById("cancel").onclick = () => post({ cancelled: true });
-      document.getElementById("credits-link").onclick = () => { document.getElementById("credits").style.display = "flex"; };
-      document.getElementById("credits-close").onclick = () => { document.getElementById("credits").style.display = "none"; };
+      // Credits overlay: the header ⓘ opens it; Back or Escape closes it. Focus moves into the
+      // overlay on open and returns to the ⓘ on close so keyboard users aren't stranded.
+      const infoBtn = document.getElementById("info-btn");
+      const creditsOverlay = document.getElementById("credits");
+      const creditsCloseBtn = document.getElementById("credits-close");
+      function openCredits() { creditsOverlay.style.display = "flex"; creditsCloseBtn.focus(); }
+      function closeCredits() { creditsOverlay.style.display = "none"; infoBtn.focus(); }
+      infoBtn.onclick = openCredits;
+      creditsCloseBtn.onclick = closeCredits;
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && creditsOverlay.style.display !== "none") { e.preventDefault(); closeCredits(); }
+      });
       separateEl.onclick = () =>
         post({
           renderId: selected.renderId,
