@@ -273,9 +273,9 @@ export async function runSeparation(
     if (e instanceof AbortError) return;
     console.error("[ablevsep] separation failed:", e instanceof Error ? (e.stack ?? e.message) : e);
     const msg = e instanceof MvsepError && e.code === 401
-      ? "Invalid mvsep API token. Replace it in the picker and try again."
+      ? "Invalid MVSEP API token. Replace it in the picker and try again."
       : e instanceof MvsepError && /premium/i.test(e.message)
-      ? "This is a premium-only model. Enable premium usage in your mvsep.com account settings (or pick a free model like BS Roformer SW), then try again."
+      ? "This is a premium-only model. Enable premium usage in your MVSEP account settings (or pick a free model like BS Roformer SW), then try again."
       : (e instanceof Error ? e.message : "The separation failed for an unknown reason.");
     await showError(ctx, msg);
   }

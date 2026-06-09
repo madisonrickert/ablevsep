@@ -168,7 +168,7 @@
       <div class="brand"><h1>MVSEP</h1><span class="sub">stem separation</span></div>
       <div class="rule"></div>
     </header>
-    <input id="search" type="text" placeholder="Search 126+ models…" autocomplete="off" />
+    <input id="search" type="text" placeholder="Search 100+ models…" autocomplete="off" />
     <div id="list" role="listbox" aria-label="Separation models"></div>
     <div id="config">
       <div id="configuring" style="display:none">
@@ -190,7 +190,7 @@
         </select>
       </div>
       <div class="field">
-        <label>mvsep API token <span class="hint">(<a href="https://mvsep.com/full_api" target="_blank">get one</a>)</span></label>
+        <label>MVSEP API token <span class="hint">(<a href="https://mvsep.com/full_api" target="_blank">get one</a>)</span></label>
         <div id="token-compact" style="display:none"></div>
         <div id="token-entry" style="display:none">
           <div class="tokenrow">
@@ -324,7 +324,7 @@
             ? 'This is a premium model, but premium usage is off on your account. ' +
               '<a id="premium-note-enable" href="#">Turn on premium usage</a>, or pick a free model like BS Roformer SW.'
             : 'This is a premium model, but you have no premium credits left. ' +
-              'Add credits at <a href="' + PROFILE_URL + '" target="_blank" rel="noreferrer">mvsep.com</a>, or pick a free model like BS Roformer SW.';
+              'Add credits at <a href="' + PROFILE_URL + '" target="_blank" rel="noreferrer">MVSEP</a>, or pick a free model like BS Roformer SW.';
           const en = document.getElementById("premium-note-enable");
           if (en) en.onclick = (e) => { e.preventDefault(); postSetPremium(true); };
         } else {
@@ -399,7 +399,7 @@
           return s + replaceLink;
         }
         if (tokenStatus.networkError) {
-          return '<span class="tok-warn">⚠ Couldn\'t reach mvsep.com to verify your token.</span>' + replaceLink;
+          return '<span class="tok-warn">⚠ Couldn\'t reach MVSEP to verify your token.</span>' + replaceLink;
         }
         return '<span class="tok-err">✗ saved token invalid' +
           (tokenStatus.message ? " (" + escapeHtml(tokenStatus.message) + ")" : "") + "</span>" + replaceLink;
@@ -491,7 +491,7 @@
           row.className = "row" + (locked ? " locked" : "") + (isSel ? " sel" : "");
           row.setAttribute("role", "option");
           // Roving tabindex: only the selected row is in the tab order (else Tab would cycle through
-          // all 126 rows). Arrow keys move the selection between rows. Proper listbox semantics.
+          // every row). Arrow keys move the selection between rows. Proper listbox semantics.
           row.tabIndex = isSel ? 0 : -1;
           row.setAttribute("aria-selected", String(isSel));
           row.__algo = a;
