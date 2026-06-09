@@ -4,6 +4,8 @@ import {
   AudioClip,
   AudioTrack,
   ClipSlot,
+  TakeLane,
+  type DataModelObject,
   type ExtensionContext,
 } from "@ableton-extensions/sdk";
 import { checkToken, createSeparation, downloadFile, getStatus, setPremiumUsage, MvsepError, type StatusFile } from "./mvsep/client";
@@ -21,7 +23,6 @@ import {
 import { placeStems } from "./placement";
 import {
   resolveDir, ensureDir, resolveScratchDir, readFileUtf8, writeFileUtf8, writeBuffer,
-  parentAudioTrack, clipSlotRow,
 } from "./live";
 
 type Ctx = ExtensionContext<"1.0.0">;
@@ -285,4 +286,25 @@ function parentAudioTrackFromSlot(slot: ClipSlot<"1.0.0">) {
   const parent = slot.parent;
   if (parent instanceof AudioTrack) return parent;
   throw new Error("Clip slot's parent is not an AudioTrack");
+}
+
+/** Walk up from an arrangement clip to its parent AudioTrack (through a TakeLane if present). */
+function parentAudioTrack(clip: DataModelObject<"1.0.0">): AudioTrack<"1.0.0"> {
+  let node: DataModelObject<"1.0.0"> | null = clip.parent;
+  while (node) {
+    if (node instanceof AudioTrack) return node;
+    if (node instanceof TakeLane) {
+      node = node.parent;
+      continue;
+    }
+    node = node.parent;
+  }
+  throw new Error("Could not resolve the clip's parent audio track");
+}
+
+/** Index of a clip slot within its track, used to place stems in the same Session row. */
+function clipSlotRow(slotHandleId: bigint, track: AudioTrack<"1.0.0">): number {
+  const idx = track.clipSlots.findIndex((s) => s.handle.id === slotHandleId);
+  if (idx < 0) throw new Error("Could not locate the clip slot on its track");
+  return idx;
 }
