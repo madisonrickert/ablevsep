@@ -630,11 +630,20 @@
       renderEstimate();
       if (limitWarnings.length) { limitWarnEl.style.display = ""; limitWarnEl.textContent = limitWarnings.join(" "); }
       renderTokenUI();
-      // Bring the preselected (free) model into view so it isn't hidden under premium rows up top.
-      const selRow = listEl.querySelector(".row.sel");
-      if (selRow && selRow.scrollIntoView) selRow.scrollIntoView({ block: "nearest" });
       updateConfigScrollHint();
       window.addEventListener("resize", updateConfigScrollHint);
+      // Live's WKWebView can defer painting the freshly-built list until the first user
+      // interaction, leaving it blank on open until you scroll or click. After the first
+      // frame, bring the selected row into view (so it isn't hidden under premium rows up
+      // top) and nudge a repaint: toggling a transform forces WebKit to re-composite the
+      // list and its rows right away, with no scroll required.
+      requestAnimationFrame(() => {
+        const selRow = listEl.querySelector(".row.sel");
+        if (selRow && selRow.scrollIntoView) selRow.scrollIntoView({ block: "nearest" });
+        listEl.style.transform = "translateZ(0)";
+        void listEl.offsetHeight; // force the reflow before clearing it
+        requestAnimationFrame(() => { listEl.style.transform = ""; });
+      });
     </script>
   </body>
 </html>
