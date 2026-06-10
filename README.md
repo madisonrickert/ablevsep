@@ -126,9 +126,11 @@ npm test           # unit tests (Vitest) for the SDK-independent modules
 npm run typecheck  # type-check the extension
 ```
 
-## License
 
-MIT. See [LICENSE](LICENSE).
+## Other extensions by the developer
+
+- [AbleTab](https://github.com/madisonrickert/abletab): View any Ableton Live MIDI clip as tablature for guitar, bass, or other
+- [Sheet Music](https://github.com/madisonrickert/ableton-sheet-music-extension): View an Ableton Live MIDI clip as sheet music
 
 ---
 
