@@ -15,4 +15,8 @@ await esbuild.build({
   minify: production,
   sourcemap: !production,
   loader: { ".html": "text" },
+  // Thread the manifest version into the bundle so error reports always show the
+  // shipped version (single source of truth: manifest.json). vitest.config.ts mirrors
+  // this define so APP_VERSION resolves under the test runner too.
+  define: { __APP_VERSION__: JSON.stringify(manifest.version) },
 });

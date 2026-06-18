@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { errorDialogHtml, issueUrl, OFFLINE_TITLE, OFFLINE_FIRST_RUN_BODY } from "./error-dialog";
+import { errorDialogHtml, issueUrl, APP_VERSION, OFFLINE_TITLE, OFFLINE_FIRST_RUN_BODY } from "./error-dialog";
+import manifest from "../manifest.json";
 
 describe("errorDialogHtml", () => {
   it("escapes HTML metacharacters in the message", () => {
@@ -24,6 +25,24 @@ describe("issueUrl", () => {
     expect(url).toContain("https://github.com/madisonrickert/ablevsep/issues/new");
     expect(url).toContain(encodeURIComponent("boom failure"));
     expect(url).toContain("labels=bug");
+  });
+  it("embeds available debug context (OS, runtime, locale)", () => {
+    const decoded = decodeURIComponent(issueUrl("boom", { platform: "darwin arm64", runtime: "v20.10.0", locale: "EN" }));
+    expect(decoded).toContain("OS: darwin arm64");
+    expect(decoded).toContain("Extension Host runtime: v20.10.0");
+    expect(decoded).toContain("Live UI language: EN");
+  });
+  it("leaves debug fields blank when not provided (Live version always blank)", () => {
+    const decoded = decodeURIComponent(issueUrl("boom"));
+    expect(decoded).toContain("OS: \n");
+    expect(decoded).toContain("Ableton Live version: \n");
+  });
+});
+
+describe("APP_VERSION", () => {
+  it("is threaded from the build, matching manifest.json", () => {
+    expect(APP_VERSION).toBe(manifest.version);
+    expect(APP_VERSION).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
 
