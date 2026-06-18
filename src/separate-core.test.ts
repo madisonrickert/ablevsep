@@ -1,8 +1,20 @@
 import { describe, it, expect, vi } from "vitest";
-import { progressFor, pollUntilDone, AbortError } from "./separate-core";
+import { progressFor, pollUntilDone, AbortError, SESSION_UNSUPPORTED_MESSAGE } from "./separate-core";
 import { MvsepError, type StatusResult } from "./mvsep/client";
 
 const base: StatusResult = { status: "waiting", files: [] };
+
+describe("SESSION_UNSUPPORTED_MESSAGE", () => {
+  // Session-clip separation is gated until the SDK can render a Session clip's audio;
+  // the message must point users to the working Arrangement path and stay em-dash-free
+  // (user-facing copy).
+  it("points the user to the Arrangement view", () => {
+    expect(SESSION_UNSUPPORTED_MESSAGE).toMatch(/Arrangement/);
+  });
+  it("uses no em dashes (user-facing copy)", () => {
+    expect(SESSION_UNSUPPORTED_MESSAGE).not.toMatch(/—/);
+  });
+});
 
 describe("progressFor", () => {
   it("maps queue position into the reserved 8–20% band by position only", () => {

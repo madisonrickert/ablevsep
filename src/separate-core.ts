@@ -1,5 +1,16 @@
 import { MvsepError, POLL_MS, type StatusResult, type StatusFile } from "./mvsep/client";
 
+/**
+ * Shown when separation is invoked on a Session clip. Session support is gated: the
+ * only way to obtain a Session clip's audio is to read its raw source file, which the
+ * installed Host's permission sandbox denies (the file lives outside the granted dirs).
+ * Until the SDK can render a Session clip's audio, the Arrangement path is the only one
+ * that works. User-facing copy: keep it em-dash-free.
+ */
+export const SESSION_UNSUPPORTED_MESSAGE =
+  "Stem separation isn't available for Session clips yet. Drag the clip into the " +
+  "Arrangement view and separate it there.";
+
 export class AbortError extends Error {
   constructor() {
     super("Cancelled");

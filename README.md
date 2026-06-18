@@ -15,7 +15,7 @@ catalog (100+ models) instead of one fixed algorithm.
 
 ## Features
 
-- Separate an **Arrangement audio clip** or a **Session clip slot** into stems.
+- Separate an **Arrangement audio clip** into stems.
 - **Smart model picker:** search 100+ MVSEP models by name or category, sorted by
   popularity, with community ★ ratings and each model's variant options.
 - **Premium-aware:** live credit-cost estimates, gating for premium-only models and output
@@ -28,10 +28,10 @@ catalog (100+ models) instead of one fixed algorithm.
 
 When you run a separation, AbleVSEP captures the clip's audio, sends it to MVSEP for
 separation, and brings the stems back into your set. For an **Arrangement** clip it renders
-exactly what plays (pre-FX, trimmed, and warped); for a **Session** clip it reads the source
-file directly. The audio is uploaded with the model you chose, and AbleVSEP polls the job
-until it finishes, showing progress you can cancel at any point. When the stems are ready, it
-downloads them and places each on its own new track beside the original.
+exactly what plays (pre-FX, trimmed, and warped). The audio is uploaded with the model you
+chose, and AbleVSEP polls the job until it finishes, showing progress you can cancel at any
+point. When the stems are ready, it downloads them and places each on its own new track
+beside the original.
 
 All MVSEP-facing logic lives in pure, unit-tested modules; the Ableton SDK is touched only at
 a thin orchestration edge.
@@ -58,13 +58,17 @@ one, see [Build from source](#build-from-source)), then:
 
 ## Usage
 
-1. Right-click an **audio clip** (Arrangement) or a **Session clip slot** → **Separate Stems with MVSEP**.
+1. Right-click an **audio clip in the Arrangement** → **Separate Stems with MVSEP**.
 2. Search/select a model, set its options + output format, paste your MVSEP API token
    (optionally "remember as default"), click **Separate**.
 3. Stems arrive as new tracks named `<clip> - <stem>`, each in its own track color, with
    the original muted.
 4. **To group them:** select the new tracks and press **⌘G** (Live's extension API can't
    create a group track programmatically).
+
+> **Session clips aren't supported yet.** The Live Extensions API can render **Arrangement**
+> audio but not a Session clip's audio, so to separate a Session clip, drag it into the
+> Arrangement first.
 
 ![The model picker: search 100+ MVSEP models, pick variant options and output format, and paste your API token](docs/screenshot-picker.png)
 
