@@ -55,6 +55,32 @@ export class MvsepError extends Error {
   }
 }
 
+/** A connectivity failure: `fetch` itself threw, so MVSEP never produced an HTTP
+ * response (DNS failure, refused, dropped). Distinct from MvsepError (the server
+ * answered with a refusal). This is the discriminator for "you're offline" UX. */
+export class NetworkError extends Error {
+  constructor(message = "Can't reach MVSEP", public cause?: unknown) {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
+/** True for a connectivity failure (fetch threw), false for a real API error
+ * (MvsepError with a status) or any other error. */
+export function isConnectivityError(e: unknown): boolean {
+  return e instanceof NetworkError;
+}
+
+/** Wraps `fetch` so a thrown request (no HTTP response) becomes a NetworkError.
+ * Returns the Response on any reply; callers still check `res.ok` themselves. */
+export async function request(fetchImpl: typeof fetch, url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetchImpl(url, init);
+  } catch (e) {
+    throw new NetworkError(e instanceof Error ? e.message : "Can't reach MVSEP", e);
+  }
+}
+
 /**
  * Best human reason from an mvsep failure response. mvsep reports failures inconsistently:
  * sometimes under `data.message`, sometimes ONLY in an `errors` array, and occasionally as a

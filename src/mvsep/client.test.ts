@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createSeparation, getStatus, downloadFile, checkToken, setPremiumUsage, MvsepError } from "./client";
+import { createSeparation, getStatus, downloadFile, checkToken, setPremiumUsage, MvsepError, NetworkError, isConnectivityError, request } from "./client";
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   const text = JSON.stringify(body);
@@ -250,5 +250,29 @@ describe("downloadFile", () => {
   it("throws on non-ok", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: false, status: 500, arrayBuffer: async () => new ArrayBuffer(0) }) as unknown as Response);
     await expect(downloadFile("https://x/f", fetchImpl as unknown as typeof fetch)).rejects.toBeInstanceOf(MvsepError);
+  });
+});
+
+describe("NetworkError / isConnectivityError", () => {
+  it("flags a NetworkError as connectivity", () => {
+    expect(isConnectivityError(new NetworkError("offline"))).toBe(true);
+  });
+  it("does NOT flag an MvsepError (server answered) as connectivity", () => {
+    expect(isConnectivityError(new MvsepError("HTTP 400", 400))).toBe(false);
+  });
+  it("does NOT flag a plain Error as connectivity", () => {
+    expect(isConnectivityError(new Error("boom"))).toBe(false);
+  });
+});
+
+describe("request()", () => {
+  it("maps a thrown fetch to a NetworkError", async () => {
+    const throwingFetch = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+    await expect(request(throwingFetch, "https://x")).rejects.toBeInstanceOf(NetworkError);
+  });
+  it("returns the Response when fetch resolves (even non-ok)", async () => {
+    const res = new Response("nope", { status: 500 });
+    const okFetch = (async () => res) as unknown as typeof fetch;
+    await expect(request(okFetch, "https://x")).resolves.toBe(res);
   });
 });
