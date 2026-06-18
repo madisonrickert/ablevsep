@@ -114,17 +114,17 @@ export async function pollUntilDone(
       doneEmpty += 1;
       if (doneEmpty > DONE_EMPTY_MAX) {
         throw new MvsepError(
-          "mvsep finished separating but has not made the stem files available within 5 minutes. " +
+          "MVSEP finished separating but has not made the stem files available within 5 minutes. " +
             "On the free tier this export step can run long under load. The job is often still " +
-            "finishing on mvsep's side, so trying again in a few minutes usually works.",
+            "finishing on MVSEP's side, so trying again in a few minutes usually works.",
         );
       }
       const secs = Math.round((doneEmpty * POLL_MS) / 1000);
       // After ~10s, set the up-to-5-minutes expectation so a long export does not read as a freeze.
       const text =
         doneEmpty * POLL_MS > 10_000
-          ? `mvsep is exporting stems, up to 5 min (${secs}s)`
-          : `mvsep is exporting stems… (${secs}s)`;
+          ? `MVSEP is exporting stems, up to 5 min (${secs}s)`
+          : `MVSEP is exporting stems… (${secs}s)`;
       // Gentle asymptotic creep 80 -> 84 so the bar stays visibly alive without overstating progress.
       const percent = Math.min(84, 80 + Math.round(8 * (1 - Math.exp(-doneEmpty / 20))));
       emit({ text, percent });
