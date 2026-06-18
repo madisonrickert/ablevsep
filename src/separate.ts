@@ -287,14 +287,24 @@ export async function runSeparation(
         premium: tokenStatus?.premiumEnabled === true,
       });
       if (limitViolations.length) throw new Error(limitViolations.join(" "));
-      const hash = await createSeparation({
-        apiToken: choice.apiToken,
-        fileData: fileBuf,
-        fileName: sourceName,
-        sepType: choice.renderId,
-        outputFormat: choice.outputFormat,
-        options: choice.options,
-      });
+      const uploadStart = Date.now();
+      const uploadTicker = setInterval(() => {
+        const secs = Math.round((Date.now() - uploadStart) / 1000);
+        void report(`Uploading… (${secs}s)`, 6);
+      }, 1000);
+      let hash: string;
+      try {
+        hash = await createSeparation({
+          apiToken: choice.apiToken,
+          fileData: fileBuf,
+          fileName: sourceName,
+          sepType: choice.renderId,
+          outputFormat: choice.outputFormat,
+          options: choice.options,
+        });
+      } finally {
+        clearInterval(uploadTicker);
+      }
       console.info(`[ablevsep] job created: ${hash} (model ${choice.renderId}, format ${choice.outputFormat})`);
       if (signal.aborted) return;
 
@@ -349,10 +359,13 @@ export async function runSeparation(
   } catch (e) {
     if (e instanceof AbortError) return;
     console.error("[ablevsep] separation failed:", e instanceof Error ? (e.stack ?? e.message) : e);
+    if (isConnectivityError(e)) { await showOfflineDialog(ctx, OFFLINE_MIDJOB_BODY); return; }
     const msg = e instanceof MvsepError && e.code === 401
       ? "Invalid MVSEP API token. Replace it in the picker and try again."
       : e instanceof MvsepError && /premium/i.test(e.message)
       ? "This is a premium-only model. Enable premium usage in your MVSEP account settings (or pick a free model like BS Roformer SW), then try again."
+      : e instanceof MvsepError && /sep_type|unknown algorithm|invalid algorithm|no algorithm/i.test(e.message) // TODO(verify): MVSEP invalid-sep_type wording
+      ? STALE_MODEL_MESSAGE
       : (e instanceof Error ? e.message : "The separation failed for an unknown reason.");
     await showError(ctx, msg);
   }
