@@ -167,29 +167,6 @@ export async function fetchAlgorithms(fetchImpl: typeof fetch = fetch): Promise<
   return parseAlgorithms(arr);
 }
 
-export async function loadCatalog(deps: {
-  readCache: () => Promise<CatalogCache | null>;
-  writeCache: (c: CatalogCache) => Promise<void>;
-  now: () => number;
-  fetchImpl?: typeof fetch;
-}): Promise<Algorithm[]> {
-  const cached = await deps.readCache();
-  const schemaCurrent = cached?.version === CATALOG_SCHEMA_VERSION;
-  if (cached && schemaCurrent && deps.now() - cached.fetchedAt < CATALOG_TTL_MS) return cached.algorithms;
-  try {
-    const algorithms = await fetchAlgorithms(deps.fetchImpl);
-    await deps.writeCache({ version: CATALOG_SCHEMA_VERSION, fetchedAt: deps.now(), algorithms });
-    return algorithms;
-  } catch (e) {
-    console.warn(
-      `[ablevsep] catalog: fetch failed (${e instanceof Error ? e.message : e}); ` +
-        (cached ? "falling back to cached catalog" : "no cache available"),
-    );
-    if (cached) return cached.algorithms;
-    throw e;
-  }
-}
-
 /** Schema-current cache, any age: safe to display while a refresh runs in the background. */
 export function isCatalogUsable(cache: CatalogCache | null): boolean {
   return Boolean(cache) && cache!.version === CATALOG_SCHEMA_VERSION;

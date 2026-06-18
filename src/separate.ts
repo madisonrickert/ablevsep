@@ -8,15 +8,15 @@ import {
   type DataModelObject,
   type ExtensionContext,
 } from "@ableton-extensions/sdk";
-import { checkToken, createSeparation, downloadFile, getStatus, setPremiumUsage, MvsepError, type StatusFile } from "./mvsep/client";
+import { checkToken, createSeparation, downloadFile, getStatus, setPremiumUsage, MvsepError, isConnectivityError, type StatusFile } from "./mvsep/client";
 import { planLimitViolations } from "./credits";
 import { wavDurationSeconds } from "./wav";
-import { loadCatalog, isPickableModel, type CatalogCache } from "./mvsep/catalog";
+import { isPickableModel, isCatalogUsable, isCatalogFresh, fetchAndCacheCatalog, type Algorithm, type CatalogCache } from "./mvsep/catalog";
 import { readConfig, writeConfig } from "./config";
 import { pollUntilDone, AbortError } from "./separate-core";
 import { openPicker } from "./picker";
 import { type PickerAction, type PickerResult } from "./picker-template";
-import { showError } from "./error-dialog";
+import { showError, showOfflineDialog, showInfoDialog, OFFLINE_FIRST_RUN_BODY, OFFLINE_MIDJOB_BODY, MODELS_NOT_LOADED_TITLE, MODELS_NOT_LOADED_BODY, STALE_MODEL_MESSAGE } from "./error-dialog";
 import {
   type OriginalClipInfo,
 } from "./placement-args";
@@ -61,6 +61,40 @@ async function configPaths(ctx: Ctx) {
   };
 }
 
+/** Loads the catalog, showing an indeterminate, cancellable dialog only if the fetch
+ * takes longer than 500ms (no flash on fast loads). Returns the algorithms, or null if
+ * the user cancelled. Throws (NetworkError / MvsepError) if the fetch fails. */
+async function loadCatalogWithIndicator(
+  ctx: Ctx,
+  deps: { writeCache: (c: CatalogCache) => Promise<void>; now: () => number },
+): Promise<Algorithm[] | null> {
+  const fetchPromise = fetchAndCacheCatalog(deps);
+  // Race a 500ms delay; settle marker ignores the fetch outcome, we re-await below.
+  const slow = await Promise.race([
+    fetchPromise.then(() => false, () => false),
+    new Promise<boolean>((r) => setTimeout(() => r(true), 500)),
+  ]);
+  if (!slow) return await fetchPromise; // resolved/rejected fast -> no dialog (rethrows on reject)
+
+  let result: Algorithm[] | undefined;
+  let error: unknown;
+  let cancelled = false;
+  await ctx.ui.withinProgressDialog("Loading models…", {}, async (_update, signal) => {
+    // Close the dialog as soon as EITHER the fetch settles OR the user cancels. A cancelled
+    // fetch is left to settle in the background (it may harmlessly populate the cache).
+    await new Promise<void>((resolve) => {
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      fetchPromise.then((a) => { result = a; finish(); }, (e) => { error = e; finish(); });
+      signal.addEventListener("abort", () => { cancelled = true; finish(); }, { once: true });
+    });
+  });
+  if (result !== undefined) return result;
+  if (error !== undefined) throw error;
+  if (cancelled) return null;
+  return null;
+}
+
 /** Entry for both contexts. `kind` selects source acquisition + placement. */
 export async function runSeparation(
   ctx: Ctx,
@@ -71,13 +105,35 @@ export async function runSeparation(
   const { configPath, catalogPath, tempDir } = await configPaths(ctx);
   let config = await readConfig(readFileUtf8, configPath);
 
-  const algorithms = await loadCatalog({
-    readCache: async () => {
-      try { return JSON.parse(await readFileUtf8(catalogPath)) as CatalogCache; } catch { return null; }
-    },
-    writeCache: async (c) => writeFileUtf8(catalogPath, JSON.stringify(c)),
-    now: () => Date.now(),
-  });
+  const readCache = async (): Promise<CatalogCache | null> => {
+    try { return JSON.parse(await readFileUtf8(catalogPath)) as CatalogCache; } catch { return null; }
+  };
+  const writeCache = async (c: CatalogCache) => writeFileUtf8(catalogPath, JSON.stringify(c));
+  const now = () => Date.now();
+
+  const cache = await readCache();
+  let algorithms: Algorithm[];
+  if (isCatalogUsable(cache)) {
+    algorithms = cache!.algorithms;
+    if (!isCatalogFresh(cache, now())) {
+      // Stale-while-revalidate: serve the cache now, refresh in the background for next time.
+      void fetchAndCacheCatalog({ writeCache, now }).catch((e) =>
+        console.warn(`[ablevsep] catalog: background refresh failed: ${e instanceof Error ? e.message : e}`));
+    }
+  } else {
+    // True first run (no usable cache): must fetch, with the deferred loading indicator.
+    let loaded: Algorithm[] | null;
+    try {
+      loaded = await loadCatalogWithIndicator(ctx, { writeCache, now });
+    } catch (e) {
+      if (isConnectivityError(e)) { await showOfflineDialog(ctx, OFFLINE_FIRST_RUN_BODY); return; }
+      console.error("[ablevsep] catalog load failed:", e instanceof Error ? (e.stack ?? e.message) : e);
+      await showError(ctx, e instanceof Error ? e.message : "Could not load the model list.");
+      return;
+    }
+    if (loaded === null) { await showInfoDialog(ctx, MODELS_NOT_LOADED_TITLE, MODELS_NOT_LOADED_BODY); return; }
+    algorithms = loaded;
+  }
 
   // The picker shows only models it can actually drive: a kept group (ASR/TTS is developer-hidden),
   // a supported upload flow (single_upload), and a placeable audio output (MIDI models are hidden).
