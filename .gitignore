@@ -18,3 +18,7 @@ spikes/
 # Internal planning/process artifacts and notes — not for the public repo.
 docs/superpowers/
 PROMOTION.md
+
+# Local-only Claude Code rule (internal protocols, paths to private docs) — auto-loads
+# from .claude/rules/ but stays out of the public repo.
+.claude/rules/internal-bug-tracking.md
