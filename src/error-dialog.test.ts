@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { errorDialogHtml, issueUrl } from "./error-dialog";
+import { errorDialogHtml, issueUrl, OFFLINE_TITLE, OFFLINE_FIRST_RUN_BODY } from "./error-dialog";
 
 describe("errorDialogHtml", () => {
   it("escapes HTML metacharacters in the message", () => {
@@ -24,5 +24,23 @@ describe("issueUrl", () => {
     expect(url).toContain("https://github.com/madisonrickert/ablevsep/issues/new");
     expect(url).toContain(encodeURIComponent("boom failure"));
     expect(url).toContain("labels=bug");
+  });
+});
+
+describe("errorDialogHtml offline variant", () => {
+  it("uses a custom title and omits the issue link when showReportLink is false", () => {
+    const html = errorDialogHtml(OFFLINE_FIRST_RUN_BODY, { title: OFFLINE_TITLE, showReportLink: false });
+    expect(html).toContain("Can't reach MVSEP");
+    expect(html).not.toContain("issues/new");
+  });
+  it("still escapes the body", () => {
+    const html = errorDialogHtml("<script>x</script>", { showReportLink: false });
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>x");
+  });
+  it("default behavior is unchanged (title + issue link present)", () => {
+    const html = errorDialogHtml("boom");
+    expect(html).toContain("Couldn't separate stems");
+    expect(html).toContain("issues/new");
   });
 });
