@@ -276,3 +276,31 @@ describe("request()", () => {
     await expect(request(okFetch, "https://x")).resolves.toBe(res);
   });
 });
+
+const throwingFetch = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+
+describe("client network functions classify connectivity", () => {
+  it("createSeparation throws NetworkError when fetch throws", async () => {
+    await expect(createSeparation(
+      { apiToken: "t", fileData: new Uint8Array(), fileName: "a.wav", sepType: 1, outputFormat: 1, options: {} },
+      throwingFetch,
+    )).rejects.toBeInstanceOf(NetworkError);
+  });
+  it("getStatus throws NetworkError when fetch throws", async () => {
+    await expect(getStatus("hash", throwingFetch)).rejects.toBeInstanceOf(NetworkError);
+  });
+  it("downloadFile throws NetworkError when fetch throws", async () => {
+    await expect(downloadFile("https://x/f.wav", throwingFetch)).rejects.toBeInstanceOf(NetworkError);
+  });
+  it("checkToken flags networkError on a transport failure", async () => {
+    const s = await checkToken("t", throwingFetch);
+    expect(s).toMatchObject({ valid: false, networkError: true });
+  });
+  it("checkToken does NOT flag networkError when the server answers non-ok", async () => {
+    const res = new Response(JSON.stringify({ success: false, message: "bad token" }), { status: 401 });
+    const okFetch = (async () => res) as unknown as typeof fetch;
+    const s = await checkToken("t", okFetch);
+    expect(s.valid).toBe(false);
+    expect(s.networkError).toBeUndefined();
+  });
+});
