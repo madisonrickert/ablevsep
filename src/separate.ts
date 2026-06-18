@@ -8,7 +8,7 @@ import {
   type DataModelObject,
   type ExtensionContext,
 } from "@ableton-extensions/sdk";
-import { checkToken, createSeparation, downloadFile, getStatus, setPremiumUsage, MvsepError, isConnectivityError, type StatusFile } from "./mvsep/client";
+import { checkToken, createSeparation, downloadFile, getStatus, setPremiumUsage, MvsepError, isConnectivityError, isUnknownModelError, type StatusFile } from "./mvsep/client";
 import { planLimitViolations } from "./credits";
 import { wavDurationSeconds } from "./wav";
 import { isPickableModel, isCatalogUsable, isCatalogFresh, fetchAndCacheCatalog, type Algorithm, type CatalogCache } from "./mvsep/catalog";
@@ -364,7 +364,7 @@ export async function runSeparation(
       ? "Invalid MVSEP API token. Replace it in the picker and try again."
       : e instanceof MvsepError && /premium/i.test(e.message)
       ? "This is a premium-only model. Enable premium usage in your MVSEP account settings (or pick a free model like BS Roformer SW), then try again."
-      : e instanceof MvsepError && /sep_type|unknown algorithm|invalid algorithm|no algorithm/i.test(e.message) // TODO(verify): MVSEP invalid-sep_type wording
+      : e instanceof MvsepError && isUnknownModelError(e.message)
       ? STALE_MODEL_MESSAGE
       : (e instanceof Error ? e.message : "The separation failed for an unknown reason.");
     await showError(ctx, msg);

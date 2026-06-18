@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createSeparation, getStatus, downloadFile, checkToken, setPremiumUsage, MvsepError, NetworkError, isConnectivityError, request } from "./client";
+import { createSeparation, getStatus, downloadFile, checkToken, setPremiumUsage, MvsepError, NetworkError, isConnectivityError, isUnknownModelError, request } from "./client";
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   const text = JSON.stringify(body);
@@ -302,5 +302,20 @@ describe("client network functions classify connectivity", () => {
     const s = await checkToken("t", okFetch);
     expect(s.valid).toBe(false);
     expect(s.networkError).toBeUndefined();
+  });
+});
+
+describe("isUnknownModelError", () => {
+  it("matches MVSEP's actual invalid-model wording (their misspelling)", () => {
+    expect(isUnknownModelError("Seperation type is not set")).toBe(true);
+  });
+  it("also matches the corrected spelling and the raw field name", () => {
+    expect(isUnknownModelError("Separation type is invalid")).toBe(true);
+    expect(isUnknownModelError("sep_type is required")).toBe(true);
+  });
+  it("does not match unrelated MVSEP errors", () => {
+    expect(isUnknownModelError("Invalid MVSEP API token.")).toBe(false);
+    expect(isUnknownModelError("This is a premium-only model.")).toBe(false);
+    expect(isUnknownModelError("Download failed: HTTP 500")).toBe(false);
   });
 });
