@@ -1,15 +1,29 @@
 import type { ExtensionContext } from "@ableton-extensions/sdk";
 
 const REPO = "madisonrickert/ablevsep";
-/** Keep in sync with manifest.json / package.json. */
-export const APP_VERSION = "1.0.1";
+/** Threaded from manifest.json at build time (build.ts) and under the test runner
+ * (vitest.config.ts), so bug reports always carry the shipped version. */
+declare const __APP_VERSION__: string;
+export const APP_VERSION = __APP_VERSION__;
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }
 
-/** A prefilled GitHub "new issue" URL for AbleVSEP, including the error text. */
-export function issueUrl(message: string): string {
+/** Runtime context auto-filled into a bug report. The SDK does not expose Live's own
+ * version, so that field is left blank for the user; everything else we can read. */
+export interface IssueDebug {
+  /** OS + arch, e.g. "darwin arm64". */
+  platform?: string;
+  /** Extension Host JS runtime version (e.g. the Node version reported by `process`). */
+  runtime?: string;
+  /** Live's UI language, uppercase ISO 639-1 (e.g. "EN"). */
+  locale?: string;
+}
+
+/** A prefilled GitHub "new issue" URL for AbleVSEP, including the error text and whatever
+ * debug context we can read at runtime (Live's version is not exposed by the SDK). */
+export function issueUrl(message: string, debug?: IssueDebug): string {
   const title = `[bug] ${message}`.slice(0, 110);
   const body = [
     "**What happened?**",
@@ -22,7 +36,9 @@ export function issueUrl(message: string): string {
     "",
     `- AbleVSEP version: ${APP_VERSION}`,
     "- Ableton Live version: ",
-    "- OS: ",
+    `- OS: ${debug?.platform ?? ""}`,
+    `- Extension Host runtime: ${debug?.runtime ?? ""}`,
+    `- Live UI language: ${debug?.locale ?? ""}`,
     "",
     "**Log file:** please attach your Extension Host log (the issue template explains where to find it).",
   ].join("\n");
@@ -34,13 +50,13 @@ export function issueUrl(message: string): string {
  * states suppress it (being offline is not a bug to report). */
 export function errorDialogHtml(
   message: string,
-  opts?: { title?: string; showReportLink?: boolean },
+  opts?: { title?: string; showReportLink?: boolean; debug?: IssueDebug },
 ): string {
   const title = escapeHtml(opts?.title ?? "Couldn't separate stems");
   const showReportLink = opts?.showReportLink ?? true;
   const safe = escapeHtml(message);
   const report = showReportLink
-    ? `<div class="report">If this keeps happening, please <a href="${escapeHtml(issueUrl(message))}" target="_blank" rel="noreferrer">open a GitHub issue</a> and attach your log.</div>`
+    ? `<div class="report">If this keeps happening, please <a href="${escapeHtml(issueUrl(message, opts?.debug))}" target="_blank" rel="noreferrer">open a GitHub issue</a> and attach your log.</div>`
     : "";
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 :root{color-scheme:dark}
@@ -73,13 +89,27 @@ export function errorDialogHeight(message: string): number {
   return Math.min(440, Math.max(170, 150 + lines * 20));
 }
 
+/** Best-effort runtime context for a bug report. `process` is read defensively (the Host
+ * runtime is Node-like but not guaranteed to expose every field); Live's version is not
+ * available from the SDK, so it is omitted (issueUrl leaves that field blank). */
+function extensionDebug(ctx: ExtensionContext<"1.0.0">): IssueDebug {
+  const hasProc = typeof process !== "undefined";
+  const platform = hasProc && process.platform
+    ? `${process.platform}${process.arch ? ` ${process.arch}` : ""}`
+    : undefined;
+  const runtime = hasProc && typeof process.version === "string" ? process.version : undefined;
+  return { platform, runtime, locale: ctx.environment.language };
+}
+
 /** Shows a modal error/info dialog. Swallows any dialog error so reporting never throws. */
 export async function showError(
   ctx: ExtensionContext<"1.0.0">,
   message: string,
   opts?: { title?: string; showReportLink?: boolean },
 ): Promise<void> {
-  const url = "data:text/html," + encodeURIComponent(errorDialogHtml(message, opts));
+  // Only gather debug context when the report link will actually be shown.
+  const debug = (opts?.showReportLink ?? true) ? extensionDebug(ctx) : undefined;
+  const url = "data:text/html," + encodeURIComponent(errorDialogHtml(message, { ...opts, debug }));
   try {
     await ctx.ui.showModalDialog(url, 440, errorDialogHeight(message));
   } catch (e) {

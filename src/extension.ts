@@ -23,7 +23,9 @@ export function activate(activation: ActivationContext) {
         // denies. Reject it with guidance toward the Arrangement, where the pre-FX render works.
         if (clip.parent instanceof ClipSlot) {
           console.info("[ablevsep] AudioClip menu on a Session clip → unsupported");
-          await showError(context, SESSION_UNSUPPORTED_MESSAGE);
+          // Known SDK limitation (the menu item can't be hidden from Session clips), not a
+          // bug: show the guidance without the "file a GitHub issue" prompt.
+          await showError(context, SESSION_UNSUPPORTED_MESSAGE, { showReportLink: false });
           return;
         }
         console.info("[ablevsep] AudioClip menu on an Arrangement clip → arrangement flow");

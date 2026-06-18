@@ -71,6 +71,14 @@ export function isConnectivityError(e: unknown): boolean {
   return e instanceof NetworkError;
 }
 
+/** True for MVSEP's "unrecognized separation model" rejection. The API reports an unknown
+ * `sep_type` as `"Seperation type is not set"` (their misspelling), verified against the live
+ * API on 2026-06-18. Match both spellings and the raw field name so a future fix to the
+ * wording still maps. Lets a removed/stale catalog model surface actionable copy. */
+export function isUnknownModelError(message: string): boolean {
+  return /sep[ae]ration type|sep_type/i.test(message);
+}
+
 /** Wraps `fetch` so a thrown request (no HTTP response) becomes a NetworkError.
  * Returns the Response on any reply; callers still check `res.ok` themselves. */
 export async function request(fetchImpl: typeof fetch, url: string, init?: RequestInit): Promise<Response> {
