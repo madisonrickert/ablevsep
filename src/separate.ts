@@ -23,6 +23,7 @@ import {
 import { placeStems } from "./placement";
 import {
   resolveDir, ensureDir, resolveScratchDir, readFileUtf8, writeFileUtf8, writeBuffer,
+  isAccessDenied, tempReadGrantMissing, TEMP_SANDBOX_RELAUNCH_MESSAGE,
 } from "./live";
 
 type Ctx = ExtensionContext<"1.0.0">;
@@ -46,8 +47,9 @@ function clipInfo(clip: AudioClip<"1.0.0">): OriginalClipInfo {
 async function configPaths(ctx: Ctx) {
   const storageDir = await ensureDir(resolveDir(ctx.environment.storageDirectory, "storage"));
   // tempDirectory's sandbox write-grant is unreliable on the first launch after a
-  // reboot (see Ableton SDK feedback #10); fall back to a persistent work/ dir under
-  // storageDirectory, whose grant always resolves.
+  // reboot (Ableton bug L12-BUG-5145): the Host canonicalizes its --allow-fs-write path
+  // at node startup, before Live creates that temp dir, so the grant never registers.
+  // Fall back to a persistent work/ dir under storageDirectory, whose grant always resolves.
   const tempDir = await resolveScratchDir([
     resolveDir(ctx.environment.tempDirectory, "temp"),
     path.join(storageDir, "work"),
@@ -193,6 +195,14 @@ export async function runSeparation(
         const track = parentAudioTrack(target.clip);
         sourcePath = await ctx.resources.renderPreFxAudio(track, target.clip.startTime, target.clip.endTime);
         sourceName = "source.wav";
+        // The render lands in $TMPDIR/Ableton Extensions; its read grant is dropped when
+        // that dir didn't exist as the Host's node started (Ableton bug L12-BUG-5145,
+        // read-side: node canonicalizes its --allow-fs-read paths at startup, before Live
+        // creates the temp dir). We can't redirect the render or re-register the grant, so
+        // detect it and tell the user to relaunch instead of surfacing a raw permission error.
+        if (tempReadGrantMissing(process.permission, sourcePath)) {
+          throw new Error(TEMP_SANDBOX_RELAUNCH_MESSAGE);
+        }
       } else {
         sourcePath = target.clip.filePath; // Session: separate the source file (best-effort).
         sourceName = path.basename(sourcePath) || "source.wav";
@@ -201,7 +211,17 @@ export async function runSeparation(
 
       // 2. Create the job.
       await report("Uploading…", 6);
-      const fileBuf = await fsp.readFile(sourcePath);
+      let fileBuf: Buffer;
+      try {
+        fileBuf = await fsp.readFile(sourcePath);
+      } catch (e) {
+        // Backstop for the dropped temp read grant above: map the raw ERR_ACCESS_DENIED
+        // on the render output to the actionable relaunch hint.
+        if (target.kind === "arrangement" && isAccessDenied(e)) {
+          throw new Error(TEMP_SANDBOX_RELAUNCH_MESSAGE);
+        }
+        throw e;
+      }
       // Exact pre-upload check against the file we're about to send (catches an oversized
       // arrangement render, whose size we couldn't know at picker time). Plain Error → the
       // catch shows the message verbatim (not the MvsepError premium-mapping path).

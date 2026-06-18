@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { resolveScratchDir, isAccessDenied } from "./live";
+import { resolveScratchDir, isAccessDenied, tempReadGrantMissing } from "./live";
 
 const accessDenied = () => Object.assign(new Error("denied"), { code: "ERR_ACCESS_DENIED" });
 
@@ -40,5 +40,26 @@ describe("isAccessDenied", () => {
     expect(isAccessDenied(Object.assign(new Error(), { code: "ERR_ACCESS_DENIED" }))).toBe(true);
     expect(isAccessDenied(Object.assign(new Error(), { code: "ENOENT" }))).toBe(false);
     expect(isAccessDenied(null)).toBe(false);
+  });
+});
+
+describe("tempReadGrantMissing", () => {
+  // Read-side of the temp-grant startup race (Ableton bug L12-BUG-5145): on the first
+  // Live launch after the OS purges $TMPDIR, the Host's --allow-fs-read grant for
+  // `Ableton Extensions` is never registered (the dir is born after node starts).
+  // renderPreFxAudio's output lands there, so reading it is denied with no fallback.
+  it("reports the grant missing when the permission model denies the read", () => {
+    const perm = { has: vi.fn(() => false) };
+    expect(tempReadGrantMissing(perm, "/var/folders/x/T/Ableton Extensions/AudioRender-1/a.aif")).toBe(true);
+    expect(perm.has).toHaveBeenCalledWith("fs.read", "/var/folders/x/T/Ableton Extensions/AudioRender-1/a.aif");
+  });
+
+  it("reports the grant present when the permission model allows the read", () => {
+    const perm = { has: vi.fn(() => true) };
+    expect(tempReadGrantMissing(perm, "/var/folders/x/T/Ableton Extensions/AudioRender-1/a.aif")).toBe(false);
+  });
+
+  it("is false when there is no permission model (dev host: reads are unsandboxed)", () => {
+    expect(tempReadGrantMissing(undefined, "/anything")).toBe(false);
   });
 });
