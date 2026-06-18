@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { parseAlgorithms, fetchAlgorithms, loadCatalog, isStemSeparationModel, isSupportedUpload, isSupportedOutput, isPickableModel, CATALOG_SCHEMA_VERSION, type CatalogCache } from "./catalog";
+import { parseAlgorithms, fetchAlgorithms, isStemSeparationModel, isSupportedUpload, isSupportedOutput, isPickableModel, isCatalogUsable, isCatalogFresh, fetchAndCacheCatalog, CATALOG_SCHEMA_VERSION, CATALOG_TTL_MS, type CatalogCache } from "./catalog";
+import { NetworkError } from "./client";
 
 const RAW = [
   {
@@ -154,49 +155,36 @@ describe("fetchAlgorithms", () => {
   });
 });
 
-describe("loadCatalog", () => {
-  it("returns fresh cache without fetching", async () => {
-    const cache: CatalogCache = { version: CATALOG_SCHEMA_VERSION, fetchedAt: 1000, algorithms: parseAlgorithms(RAW) };
-    const fetchImpl = vi.fn();
-    const algos = await loadCatalog({
-      readCache: async () => cache, writeCache: async () => {}, now: () => 1000 + 1000, fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-    expect(algos.length).toBe(2);
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
+const cache = (over: Partial<CatalogCache> = {}): CatalogCache =>
+  ({ version: CATALOG_SCHEMA_VERSION, fetchedAt: 1000, algorithms: [], ...over });
 
-  it("refetches when the cached schema version predates the current one, even within the TTL", async () => {
-    // A pre-priceCoefficient cache: fresh by time, but written before the schema gained the field.
-    const fetchImpl = vi.fn(async () => ({ ok: true, status: 200, json: async () => RAW }) as unknown as Response);
-    const writeCache = vi.fn(async () => {});
-    const algos = await loadCatalog({
-      readCache: async () => ({ fetchedAt: 1000, algorithms: [] }),
-      writeCache, now: () => 1000 + 1000, fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-    expect(fetchImpl).toHaveBeenCalledOnce();
-    expect(writeCache).toHaveBeenCalledOnce();
-    expect(algos.length).toBe(2);
+describe("catalog cache predicates", () => {
+  it("usable when schema matches, any age", () => {
+    expect(isCatalogUsable(cache({ fetchedAt: 0 }))).toBe(true);
   });
-
-  it("refetches + writes when cache is stale", async () => {
-    const fetchImpl = vi.fn(async () => ({ ok: true, status: 200, json: async () => RAW }) as unknown as Response);
-    const writeCache = vi.fn(async () => {});
-    const STALE = 1000;
-    const algos = await loadCatalog({
-      readCache: async () => ({ fetchedAt: 0, algorithms: [] }),
-      writeCache, now: () => STALE + 25 * 60 * 60 * 1000, fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-    expect(fetchImpl).toHaveBeenCalledOnce();
-    expect(writeCache).toHaveBeenCalledOnce();
-    expect(algos.length).toBe(2);
+  it("not usable when null or schema mismatched", () => {
+    expect(isCatalogUsable(null)).toBe(false);
+    expect(isCatalogUsable(cache({ version: 1 }))).toBe(false);
   });
+  it("fresh only within the TTL", () => {
+    const now = 1000 + CATALOG_TTL_MS - 1;
+    expect(isCatalogFresh(cache(), now)).toBe(true);
+    expect(isCatalogFresh(cache(), 1000 + CATALOG_TTL_MS + 1)).toBe(false);
+  });
+});
 
-  it("falls back to stale cache when fetch fails", async () => {
-    const cache: CatalogCache = { fetchedAt: 0, algorithms: parseAlgorithms(RAW) };
-    const fetchImpl = vi.fn(async () => { throw new Error("network"); });
-    const algos = await loadCatalog({
-      readCache: async () => cache, writeCache: async () => {}, now: () => 9e12, fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-    expect(algos.length).toBe(2);
+describe("fetchAndCacheCatalog", () => {
+  it("writes the cache and returns algorithms on success", async () => {
+    const body = JSON.stringify([]); // empty algorithm array parses to []
+    const okFetch = (async () => new Response(body, { status: 200 })) as unknown as typeof fetch;
+    let written: CatalogCache | undefined;
+    const algos = await fetchAndCacheCatalog({ writeCache: async (c) => { written = c; }, now: () => 42, fetchImpl: okFetch });
+    expect(Array.isArray(algos)).toBe(true);
+    expect(written).toMatchObject({ version: CATALOG_SCHEMA_VERSION, fetchedAt: 42 });
+  });
+  it("throws NetworkError when the fetch throws", async () => {
+    const throwingFetch = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+    await expect(fetchAndCacheCatalog({ writeCache: async () => {}, now: () => 0, fetchImpl: throwingFetch }))
+      .rejects.toBeInstanceOf(NetworkError);
   });
 });

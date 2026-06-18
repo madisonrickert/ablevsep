@@ -55,6 +55,32 @@ export class MvsepError extends Error {
   }
 }
 
+/** A connectivity failure: `fetch` itself threw, so MVSEP never produced an HTTP
+ * response (DNS failure, refused, dropped). Distinct from MvsepError (the server
+ * answered with a refusal). This is the discriminator for "you're offline" UX. */
+export class NetworkError extends Error {
+  constructor(message = "Can't reach MVSEP", public cause?: unknown) {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
+/** True for a connectivity failure (fetch threw), false for a real API error
+ * (MvsepError with a status) or any other error. */
+export function isConnectivityError(e: unknown): boolean {
+  return e instanceof NetworkError;
+}
+
+/** Wraps `fetch` so a thrown request (no HTTP response) becomes a NetworkError.
+ * Returns the Response on any reply; callers still check `res.ok` themselves. */
+export async function request(fetchImpl: typeof fetch, url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetchImpl(url, init);
+  } catch (e) {
+    throw new NetworkError(e instanceof Error ? e.message : "Can't reach MVSEP", e);
+  }
+}
+
 /**
  * Best human reason from an mvsep failure response. mvsep reports failures inconsistently:
  * sometimes under `data.message`, sometimes ONLY in an `errors` array, and occasionally as a
@@ -116,7 +142,7 @@ export async function createSeparation(p: CreateParams, fetchImpl: typeof fetch 
     data: p.fileData,
     contentType: "audio/wav",
   });
-  const res = await fetchImpl(`${BASE}/api/separation/create`, {
+  const res = await request(fetchImpl, `${BASE}/api/separation/create`, {
     method: "POST",
     headers: { "content-type": contentType },
     // Uint8Array is a valid fetch body at runtime; cast past the TS 5.7+ BufferSource generic nit.
@@ -143,21 +169,23 @@ export async function createSeparation(p: CreateParams, fetchImpl: typeof fetch 
  * as a lightweight launch-time health check.
  */
 export async function checkToken(apiToken: string, fetchImpl: typeof fetch = fetch): Promise<TokenStatus> {
+  let res: Response;
   try {
-    const res = await fetchImpl(`${BASE}/api/app/user?api_token=${encodeURIComponent(apiToken)}`);
-    const json: any = await res.json().catch(() => ({}));
-    if (!res.ok || json?.success === false) {
-      return { valid: false, message: json?.data?.message ?? json?.message ?? `HTTP ${res.status}` };
-    }
-    const d = json?.data ?? json ?? {};
-    return {
-      valid: true,
-      premiumMinutes: numOrUndef(d.premium_minutes),
-      premiumEnabled: d.premium_enabled === 1 || d.premium_enabled === true,
-    };
+    res = await request(fetchImpl, `${BASE}/api/app/user?api_token=${encodeURIComponent(apiToken)}`);
   } catch (e) {
+    // Only a transport failure (request -> NetworkError) is a connectivity problem.
     return { valid: false, networkError: true, message: e instanceof Error ? e.message : "network error" };
   }
+  const json: any = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    return { valid: false, message: json?.data?.message ?? json?.message ?? `HTTP ${res.status}` };
+  }
+  const d = json?.data ?? json ?? {};
+  return {
+    valid: true,
+    premiumMinutes: numOrUndef(d.premium_minutes),
+    premiumEnabled: d.premium_enabled === 1 || d.premium_enabled === true,
+  };
 }
 
 /**
@@ -171,7 +199,7 @@ export async function setPremiumUsage(
   fetchImpl: typeof fetch = fetch,
 ): Promise<TokenStatus> {
   const url = `${BASE}/api/app/${enabled ? "enable" : "disable"}_premium`;
-  const res = await fetchImpl(url, {
+  const res = await request(fetchImpl, url, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: `api_token=${encodeURIComponent(apiToken)}`,
@@ -256,7 +284,7 @@ export async function getStatus(hash: string, fetchImpl: typeof fetch = fetch): 
   const seq = ++pollSeq;
   const bust = `${seq}-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
   const url = `${BASE}/api/separation/get?hash=${encodeURIComponent(hash)}&t=${bust}`;
-  const res = await fetchImpl(url, { headers: { "cache-control": "no-cache", pragma: "no-cache" } });
+  const res = await request(fetchImpl, url, { headers: { "cache-control": "no-cache", pragma: "no-cache" } });
   const json: any = await res.json().catch((e: unknown) => {
     console.warn(`[ablevsep] getStatus: non-JSON response (HTTP ${res.status}):`, e instanceof Error ? e.message : e);
     return {};
@@ -295,7 +323,7 @@ export async function getStatus(hash: string, fetchImpl: typeof fetch = fetch): 
 }
 
 export async function downloadFile(url: string, fetchImpl: typeof fetch = fetch): Promise<ArrayBuffer> {
-  const res = await fetchImpl(url);
+  const res = await request(fetchImpl, url);
   if (!res.ok) throw new MvsepError(`Download failed: HTTP ${res.status}`, res.status);
   return res.arrayBuffer();
 }

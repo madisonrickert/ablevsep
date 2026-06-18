@@ -1,4 +1,4 @@
-import { MvsepError, POLL_MS, type StatusResult, type StatusFile } from "./mvsep/client";
+import { MvsepError, POLL_MS, isConnectivityError, type StatusResult, type StatusFile } from "./mvsep/client";
 
 /**
  * Shown when separation is invoked on a Session clip. Session support is gated: the
@@ -70,6 +70,11 @@ export function progressFor(s: StatusResult, processingTick = 0): Progress {
  * is about to finish is not killed prematurely. */
 export const DONE_EMPTY_MAX = 120;
 
+/** Consecutive connectivity failures tolerated while polling before giving up (~15s at
+ * POLL_MS). The MVSEP job keeps running server-side, so a brief blip should not abandon
+ * it. This is NOT a re-upload retry; it only re-polls a job already in flight. */
+export const POLL_CONN_FAILURE_MAX = 6;
+
 export async function pollUntilDone(
   hash: string,
   deps: {
@@ -81,10 +86,26 @@ export async function pollUntilDone(
 ): Promise<StatusFile[]> {
   let processingTick = 0;
   let doneEmpty = 0;
+  let connFailures = 0;
+  let lastPercent = 0;
+  const emit = (p: Progress) => { lastPercent = p.percent; deps.onProgress(p); };
   // eslint-disable-next-line no-constant-condition
   while (true) {
     if (deps.signal.aborted) throw new AbortError();
-    const s = await deps.getStatus(hash);
+    let s: StatusResult;
+    try {
+      s = await deps.getStatus(hash);
+      connFailures = 0;
+    } catch (e) {
+      if (!isConnectivityError(e)) throw e; // real API error surfaces immediately
+      connFailures += 1;
+      if (connFailures > POLL_CONN_FAILURE_MAX) throw e; // give up -> offline dialog
+      const secs = Math.round((connFailures * POLL_MS) / 1000);
+      // Keep the bar where it was (report() on the consumer side is monotonic) but show life.
+      deps.onProgress({ text: `Reconnecting to MVSEP… (${secs}s)`, percent: lastPercent });
+      await deps.sleep(POLL_MS, deps.signal);
+      continue;
+    }
     if (s.status === "done" && s.files.length === 0) {
       // mvsep flips to "done" before the stem files finish exporting; the file records
       // appear with empty urls until each is uploaded to storage. This export step is
@@ -93,23 +114,23 @@ export async function pollUntilDone(
       doneEmpty += 1;
       if (doneEmpty > DONE_EMPTY_MAX) {
         throw new MvsepError(
-          "mvsep finished separating but has not made the stem files available within 5 minutes. " +
+          "MVSEP finished separating but has not made the stem files available within 5 minutes. " +
             "On the free tier this export step can run long under load. The job is often still " +
-            "finishing on mvsep's side, so trying again in a few minutes usually works.",
+            "finishing on MVSEP's side, so trying again in a few minutes usually works.",
         );
       }
       const secs = Math.round((doneEmpty * POLL_MS) / 1000);
       // After ~10s, set the up-to-5-minutes expectation so a long export does not read as a freeze.
       const text =
         doneEmpty * POLL_MS > 10_000
-          ? `mvsep is exporting stems, up to 5 min (${secs}s)`
-          : `mvsep is exporting stems… (${secs}s)`;
+          ? `MVSEP is exporting stems, up to 5 min (${secs}s)`
+          : `MVSEP is exporting stems… (${secs}s)`;
       // Gentle asymptotic creep 80 -> 84 so the bar stays visibly alive without overstating progress.
       const percent = Math.min(84, 80 + Math.round(8 * (1 - Math.exp(-doneEmpty / 20))));
-      deps.onProgress({ text, percent });
+      emit({ text, percent });
     } else {
       const tick = s.status === "processing" ? ++processingTick : 0;
-      deps.onProgress(progressFor(s, tick));
+      emit(progressFor(s, tick));
       if (s.status === "done") return s.files;
       if (s.status === "failed") throw new MvsepError(s.message ?? "Separation failed");
       if (s.status === "not_found") throw new MvsepError("Job not found or expired");

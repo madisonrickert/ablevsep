@@ -1,4 +1,4 @@
-import { BASE, MvsepError, type AddOptKey } from "./client";
+import { BASE, MvsepError, request, type AddOptKey } from "./client";
 
 export interface AlgorithmField {
   name: AddOptKey;
@@ -160,32 +160,31 @@ export function parseAlgorithms(raw: unknown[]): Algorithm[] {
 }
 
 export async function fetchAlgorithms(fetchImpl: typeof fetch = fetch): Promise<Algorithm[]> {
-  const res = await fetchImpl(`${BASE}/api/app/algorithms?scopes=single_upload`);
+  const res = await request(fetchImpl, `${BASE}/api/app/algorithms?scopes=single_upload`);
   if (!res.ok) throw new MvsepError(`Catalog fetch failed: HTTP ${res.status}`, res.status);
   const arr = await res.json();
   if (!Array.isArray(arr)) throw new MvsepError("Catalog response was not an array");
   return parseAlgorithms(arr);
 }
 
-export async function loadCatalog(deps: {
-  readCache: () => Promise<CatalogCache | null>;
+/** Schema-current cache, any age: safe to display while a refresh runs in the background. */
+export function isCatalogUsable(cache: CatalogCache | null): boolean {
+  return Boolean(cache) && cache!.version === CATALOG_SCHEMA_VERSION;
+}
+
+/** Schema-current AND within the TTL: no refresh needed. */
+export function isCatalogFresh(cache: CatalogCache | null, now: number): boolean {
+  return isCatalogUsable(cache) && now - cache!.fetchedAt < CATALOG_TTL_MS;
+}
+
+/** Fetches the catalog, writes it to the cache, and returns it. Throws NetworkError
+ * (transport) or MvsepError (bad response) on failure — callers classify and surface. */
+export async function fetchAndCacheCatalog(deps: {
   writeCache: (c: CatalogCache) => Promise<void>;
   now: () => number;
   fetchImpl?: typeof fetch;
 }): Promise<Algorithm[]> {
-  const cached = await deps.readCache();
-  const schemaCurrent = cached?.version === CATALOG_SCHEMA_VERSION;
-  if (cached && schemaCurrent && deps.now() - cached.fetchedAt < CATALOG_TTL_MS) return cached.algorithms;
-  try {
-    const algorithms = await fetchAlgorithms(deps.fetchImpl);
-    await deps.writeCache({ version: CATALOG_SCHEMA_VERSION, fetchedAt: deps.now(), algorithms });
-    return algorithms;
-  } catch (e) {
-    console.warn(
-      `[ablevsep] catalog: fetch failed (${e instanceof Error ? e.message : e}); ` +
-        (cached ? "falling back to cached catalog" : "no cache available"),
-    );
-    if (cached) return cached.algorithms;
-    throw e;
-  }
+  const algorithms = await fetchAlgorithms(deps.fetchImpl);
+  await deps.writeCache({ version: CATALOG_SCHEMA_VERSION, fetchedAt: deps.now(), algorithms });
+  return algorithms;
 }

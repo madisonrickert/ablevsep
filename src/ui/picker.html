@@ -408,7 +408,7 @@
           return s + replaceLink;
         }
         if (tokenStatus.networkError) {
-          return '<span class="tok-warn">⚠ Couldn\'t reach MVSEP to verify your token.</span>' + replaceLink;
+          return '<span class="tok-warn">⚠ Couldn\'t reach MVSEP to verify your token. It\'s saved; reconnect to use it.</span>' + replaceLink;
         }
         return '<span class="tok-err">✗ saved token invalid' +
           (tokenStatus.message ? " (" + escapeHtml(tokenStatus.message) + ")" : "") + "</span>" + replaceLink;
