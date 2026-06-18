@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { progressFor, pollUntilDone, AbortError, SESSION_UNSUPPORTED_MESSAGE } from "./separate-core";
-import { MvsepError, type StatusResult } from "./mvsep/client";
+import { progressFor, pollUntilDone, POLL_CONN_FAILURE_MAX, AbortError, SESSION_UNSUPPORTED_MESSAGE } from "./separate-core";
+import { MvsepError, NetworkError, type StatusResult } from "./mvsep/client";
 
 const base: StatusResult = { status: "waiting", files: [] };
 
@@ -130,5 +130,34 @@ describe("pollUntilDone", () => {
         getStatus: async () => base, sleep: async () => {}, signal: { aborted: true } as AbortSignal, onProgress: () => {},
       }),
     ).rejects.toBeInstanceOf(AbortError);
+  });
+});
+
+const done: StatusResult = { status: "done", files: [{ filename: "bass.wav", downloadUrl: "https://x/bass.wav" }] };
+const noSleep = async () => {};
+const liveSignal = new AbortController().signal;
+
+describe("pollUntilDone connectivity resilience", () => {
+  it("recovers after up to the cap of consecutive connectivity failures", async () => {
+    let calls = 0;
+    const progress: string[] = [];
+    const files = await pollUntilDone("h", {
+      getStatus: async () => { calls++; if (calls <= POLL_CONN_FAILURE_MAX) throw new NetworkError(); return done; },
+      sleep: noSleep, signal: liveSignal, onProgress: (p) => progress.push(p.text),
+    });
+    expect(files).toHaveLength(1);
+    expect(progress.some((t) => t.startsWith("Reconnecting to MVSEP"))).toBe(true);
+  });
+  it("gives up with a NetworkError once the cap is exceeded", async () => {
+    await expect(pollUntilDone("h", {
+      getStatus: async () => { throw new NetworkError(); },
+      sleep: noSleep, signal: liveSignal, onProgress: () => {},
+    })).rejects.toBeInstanceOf(NetworkError);
+  });
+  it("surfaces a real (non-connectivity) error immediately", async () => {
+    await expect(pollUntilDone("h", {
+      getStatus: async () => { throw new MvsepError("Job not found or expired"); },
+      sleep: noSleep, signal: liveSignal, onProgress: () => {},
+    })).rejects.toBeInstanceOf(MvsepError);
   });
 });
