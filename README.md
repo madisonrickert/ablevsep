@@ -3,7 +3,7 @@
 [![CI](https://github.com/madisonrickert/ablevsep/actions/workflows/ci.yml/badge.svg)](https://github.com/madisonrickert/ablevsep/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/madisonrickert/ablevsep?label=release)](https://github.com/madisonrickert/ablevsep/releases/latest)
 [![License: MIT](https://img.shields.io/github/license/madisonrickert/ablevsep)](LICENSE)
-[![Ableton Live Suite 12.4.5+](https://img.shields.io/badge/Ableton%20Live%20Suite-12.4.5%2B-black)](https://www.ableton.com/en/live/extensions)
+[![Ableton Live Suite 12.4.5b5+](https://img.shields.io/badge/Ableton%20Live%20Suite-12.4.5b5%2B-black)](https://www.ableton.com/en/live/extensions)
 [![Stars](https://img.shields.io/github/stars/madisonrickert/ablevsep?style=flat)](https://github.com/madisonrickert/ablevsep/stargazers)
 
 Right-click an audio clip in Ableton Live → **Separate Stems with MVSEP** → pick any
@@ -40,8 +40,8 @@ a thin orchestration edge.
 
 ## Requirements
 
-To install and use AbleVSEP you need only **Ableton Live Suite 12.4.5+ with Extensions**
-(Extensions are a Suite-only feature, currently in the Live 12 beta; tested on 12.4.5b3) and
+To install and use AbleVSEP you need only **Ableton Live Suite 12.4.5b5+ with Extensions**
+(Extensions are a Suite-only feature, currently in the Live 12 beta; tested on 12.4.5b6) and
 an **MVSEP API token** ([get one](https://mvsep.com/full_api)). The `.ablx` is self-contained
 and runs inside Live's Extension Host, so you do **not** need Node.js or the SDK installed to
 use it. Separations run on your MVSEP account, and premium models spend your MVSEP credits.

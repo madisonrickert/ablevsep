@@ -2,7 +2,7 @@
 
 Unofficial Ableton Live extension: right-click an audio clip → "Separate Stems with
 MVSEP" → pick a model → stems return as new color-coded tracks. Wraps the MVSEP HTTP API
-and exposes its 100+ model catalog. Requires Ableton Live **Suite** 12.4.5+ (Extensions are
+and exposes its 100+ model catalog. Requires Ableton Live **Suite** 12.4.5b5+ (Extensions are
 Suite-only). Full overview: `README.md` (read on demand).
 
 ## Commands
