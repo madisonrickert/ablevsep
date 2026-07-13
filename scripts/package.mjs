@@ -2,8 +2,8 @@
 // git-ignored. The .ablx is the *shippable* artifact (a ZIP of manifest.json +
 // the built dist/extension.js) that users drag into Live's Extensions prefs;
 // dist/ holds the intermediate bundle that this packages. Run via
-// `npm run package` (which builds first). Pass `--reveal` to open the file in
-// Finder, ready to drag in: `npm run package -- --reveal`.
+// `pnpm run package` (which builds first). Pass `--reveal` to open the file in
+// Finder, ready to drag in: `pnpm run package -- --reveal`.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -17,7 +17,7 @@ function fail(msg) {
 
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
 if (!existsSync(manifest.entry)) {
-  fail(`${manifest.entry} not found — run \`npm run build\` first (or just \`npm run package\`).`);
+  fail(`${manifest.entry} not found — run \`pnpm run build\` first (or just \`pnpm run package\`).`);
 }
 
 // Match extensions-cli's own naming so the file is identical to its default,

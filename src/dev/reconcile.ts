@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
-// Startup reconciliation for the dev launcher (`npm run start`).
+// Startup reconciliation for the dev launcher (`pnpm run start`).
 //
 // The Ableton `extensions-cli run` dev server spawns an Extension Host child and,
 // on any non-graceful exit (closed terminal, SIGKILL, sleep), leaves it orphaned.

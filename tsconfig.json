@@ -1,6 +1,6 @@
 {
   // Bundler resolution matches our toolchain (esbuild build + Vitest), so shipped
-  // modules can use extensionless relative imports. `tsc --noEmit` (in `npm run build`)
+  // modules can use extensionless relative imports. `tsc --noEmit` (in `pnpm run build`)
   // type-checks the shipped code; test files are verified by Vitest at runtime.
   "compilerOptions": {
     "module": "esnext",

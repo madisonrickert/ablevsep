@@ -90,9 +90,9 @@ is distributed by Ableton, not published to npm, and **not** bundled here. Obtai
    ```bash
    cp .env.example .env
    # set ABLETON_SDK_PATH to your unpacked SDK, e.g. /path/to/extensions-sdk-1.0.0-beta.0
-   npm run setup
+   pnpm run setup
    ```
-   `npm run setup` copies the SDK tarballs into `./vendor/` (git-ignored) and installs all
+   `pnpm run setup` copies the SDK tarballs into `./vendor/` (git-ignored) and installs all
    dependencies. Set the path once and you never edit `package.json`.
 
 ## Develop
@@ -105,29 +105,29 @@ The fastest loop uses Live's Developer Mode and an externally-launched Extension
    host so the externally-launched one can connect).
 3. Build and launch the host (leave it running):
    ```bash
-   npm start
+   pnpm start
    ```
-   `npm start` builds in dev mode and runs `extensions-cli run`, pointing storage/temp at
+   `pnpm start` builds in dev mode and runs `extensions-cli run`, pointing storage/temp at
    `./.dev/` (git-ignored) so your token and catalog cache persist between runs.
 4. Right-click an audio clip → **Separate Stems with MVSEP**.
 
 ## Build & package
 
 ```bash
-npm run build               # production bundle → dist/extension.js
-npm run package             # build + package the installable → release/<name>-<version>.ablx
-npm run package -- --reveal # same, then reveal the .ablx in Finder (macOS)
+pnpm run build               # production bundle → dist/extension.js
+pnpm run package             # build + package the installable → release/<name>-<version>.ablx
+pnpm run package -- --reveal # same, then reveal the .ablx in Finder (macOS)
 ```
 
-`npm run package` writes the installable to `release/` (git-ignored), clearing any older
+`pnpm run package` writes the installable to `release/` (git-ignored), clearing any older
 `.ablx` first so there's only ever the current one. Install it by dropping the `.ablx` onto
 Live's **Extensions** preferences (with Developer Mode **off**).
 
 ## Test
 
 ```bash
-npm test           # unit tests (Vitest) for the SDK-independent modules
-npm run typecheck  # type-check the extension
+pnpm test           # unit tests (Vitest) for the SDK-independent modules
+pnpm run typecheck  # type-check the extension
 ```
 
 

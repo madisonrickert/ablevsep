@@ -1,4 +1,4 @@
-// Vendors the Ableton Extensions SDK tarballs into ./vendor so `npm install` can
+// Vendors the Ableton Extensions SDK tarballs into ./vendor so `pnpm install` can
 // resolve them. The SDK is a private beta distributed by Ableton and is not
 // committed to this repo. Point ABLETON_SDK_PATH (in .env or your shell) at your
 // unpacked SDK; this copies the SDK + CLI tarballs into ./vendor with stable names.
@@ -29,7 +29,7 @@ if (!sdkPath) {
     "ABLETON_SDK_PATH is not set.\n" +
       "  Copy .env.example to .env and set it to your unpacked Ableton Extensions SDK, e.g.\n" +
       "    ABLETON_SDK_PATH=/path/to/extensions-sdk-1.0.0-beta.0\n" +
-      "  then re-run `npm run setup`.",
+      "  then re-run `pnpm run setup`.",
   );
 }
 

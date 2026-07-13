@@ -1,13 +1,13 @@
-// Supervised dev launcher for `npm run start`.
+// Supervised dev launcher for `pnpm run start`.
 //
 // Wraps `extensions-cli run` so we can (1) reconcile away any stale dev host before
 // launching — see src/dev/reconcile.ts for why startup reconciliation, not exit
 // traps, is the reliable fix — and (2) own teardown of the host process group on
 // Ctrl-C so we stop creating orphans in the first place.
 //
-//   npm run start                 reconcile → launch → supervise (Ctrl-C tears down)
+//   pnpm run start                 reconcile → launch → supervise (Ctrl-C tears down)
 //   tsx scripts/dev.ts --dry-run  show what reconcile would reap, then exit
-//   npm run dev:clean             reconcile only (reap a stale session), then exit
+//   pnpm run dev:clean             reconcile only (reap a stale session), then exit
 //
 // `--json` prints the reconcile result as JSON (for agent-driven inspection).
 import { spawn } from "node:child_process";

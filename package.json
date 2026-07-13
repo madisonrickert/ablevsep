@@ -5,19 +5,20 @@
   "license": "MIT",
   "main": "dist/extension.js",
   "type": "module",
+  "packageManager": "pnpm@11.10.0",
   "engines": {
     "node": ">=24.14.1"
   },
   "scripts": {
-    "setup": "node scripts/setup-sdk.mjs && npm install",
+    "setup": "node scripts/setup-sdk.mjs && pnpm install",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "build:dev": "npm run typecheck && tsx build.ts",
-    "build": "npm run typecheck && tsx build.ts --production",
-    "start": "npm run build:dev && tsx scripts/dev.ts",
+    "build:dev": "pnpm run typecheck && tsx build.ts",
+    "build": "pnpm run typecheck && tsx build.ts --production",
+    "start": "pnpm run build:dev && tsx scripts/dev.ts",
     "dev:clean": "tsx scripts/dev.ts --reconcile-only",
-    "package": "npm run build && node scripts/package.mjs"
+    "package": "pnpm run build && node scripts/package.mjs"
   },
   "dependencies": {
     "@ableton-extensions/sdk": "file:vendor/ableton-extensions-sdk.tgz"

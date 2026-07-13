@@ -11,9 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
+          cache: pnpm
 
       # The Ableton Extensions SDK is a local beta tarball that is not published
       # to npm and is intentionally not committed. CI verifies the SDK-independent
@@ -24,7 +27,7 @@ jobs:
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));for(const k of ['dependencies','devDependencies']){if(p[k]){delete p[k]['@ableton-extensions/sdk'];delete p[k]['@ableton-extensions/cli'];}}fs.writeFileSync('package.json',JSON.stringify(p,null,2));"
 
       - name: Install dependencies
-        run: npm install --no-package-lock
+        run: pnpm install --no-frozen-lockfile
 
       - name: Unit tests
-        run: npm test
+        run: pnpm test

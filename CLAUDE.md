@@ -7,12 +7,12 @@ Suite-only). Full overview: `README.md` (read on demand).
 
 ## Commands
 
-- `npm test` — unit tests (vitest); `npm run test:watch` to watch.
-- `npm run typecheck` — `tsc --noEmit`.
-- `npm run build:dev` / `npm run build` — esbuild → `dist/extension.js` (prod minifies); `ui/picker.html` is inlined as a text import.
-- `npm start` — build:dev, then launch the supervised dev host (reconcile → `extensions-cli run` → Ctrl-C tears down). Needs Live installed.
-- `npm run dev:clean` — reap a stale/orphaned dev host, then exit.
-- `npm run package` — prod build → `.ablx`. `npm run setup` — vendor SDK tarballs (gitignored `vendor/`) + install.
+- `pnpm test` — unit tests (vitest); `pnpm run test:watch` to watch.
+- `pnpm run typecheck` — `tsc --noEmit`.
+- `pnpm run build:dev` / `pnpm run build` — esbuild → `dist/extension.js` (prod minifies); `ui/picker.html` is inlined as a text import.
+- `pnpm start` — build:dev, then launch the supervised dev host (reconcile → `extensions-cli run` → Ctrl-C tears down). Needs Live installed.
+- `pnpm run dev:clean` — reap a stale/orphaned dev host, then exit.
+- `pnpm run package` — prod build → `.ablx`. `pnpm run setup` — vendor SDK tarballs (gitignored `vendor/`) + install.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ Pure, unit-tested modules; the SDK is touched only at a thin orchestration edge
 
 ## Runtime gotchas (Live Extension Host)
 
-- **Shared host:** the Extension Host process is shared across all installed extensions. NEVER blanket-kill `ExtensionHostNodeModule.node`. Restart the dev extension via `npm run dev:clean` then `npm start` (or SIGINT the dev supervisor's process group — it tears down its own host). `extensions-cli` does not hot-reload: rebuild + restart to pick up changes.
+- **Shared host:** the Extension Host process is shared across all installed extensions. NEVER blanket-kill `ExtensionHostNodeModule.node`. Restart the dev extension via `pnpm run dev:clean` then `pnpm start` (or SIGINT the dev supervisor's process group — it tears down its own host). `extensions-cli` does not hot-reload: rebuild + restart to pick up changes.
 - **No Node parity** in the host/webview JS runtime: `URL`, `Blob`, `FormData` are absent (`new URL()` throws). That's why `client.ts` hand-builds multipart; don't reintroduce them.
 - **WKWebView (picker dialog):** defers painting freshly-built DOM until a reflow (force one after building the list); won't paint a cursor on a natively-disabled button (wrap it, use `pointer-events`); external-link navigation closes the modal with an empty payload (parse as cancel).
 
