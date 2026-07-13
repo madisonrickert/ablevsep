@@ -2,6 +2,6 @@
   "name": "AbleVSEP",
   "author": "Madison Rickert",
   "entry": "dist/extension.js",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "minimumApiVersion": "1.0.0"
 }
